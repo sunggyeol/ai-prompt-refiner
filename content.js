@@ -1,11 +1,11 @@
-// AI Prompt Refiner Content Script - Gemini Cloud API Version
-class PromptRefiner {
+// Instant Prompt Optimizer Content Script - Gemini Cloud API Version
+class PromptOptimizer {
   constructor() {
     this.selectedText = '';
     this.selectionRange = null;
-    this.refinementPopup = null;
+    this.optimizationPopup = null;
     this.apiKey = null;
-    this.isRefining = false; // Track if a refining request is in progress
+    this.isOptimizing = false; // Track if an optimizing request is in progress
     this.justClosed = false; // Track if popup was just closed to prevent immediate reopening
     
     this.init();
@@ -18,10 +18,10 @@ class PromptRefiner {
       this.apiKey = result.geminiApiKey;
       
       if (!this.apiKey) {
-        console.warn('AI Prompt Refiner: No Gemini API key found. Please configure in extension popup.');
+        console.warn('Instant Prompt Optimizer: No Gemini API key found. Please configure in extension popup.');
       }
     } catch (error) {
-      console.error('AI Prompt Refiner: Error loading API key:', error);
+      console.error('Instant Prompt Optimizer: Error loading API key:', error);
     }
 
     // Set up event listeners
@@ -39,7 +39,7 @@ class PromptRefiner {
 
   handleTextSelection(event) {
     // Prevent handling new selections during active refinement
-    if (this.isRefining) {
+    if (this.isOptimizing) {
       return;
     }
     
@@ -50,8 +50,8 @@ class PromptRefiner {
     
     // Small delay to ensure selection is complete
     setTimeout(() => {
-      // Double-check refinement state and close state after timeout
-      if (this.isRefining || this.justClosed) {
+      // Double-check optimization state and close state after timeout
+      if (this.isOptimizing || this.justClosed) {
         return;
       }
       
@@ -74,16 +74,16 @@ class PromptRefiner {
           this.targetElement = null;
         }
         
-        this.showRefinementOptions(event);
+        this.showOptimizationOptions(event);
       } else {
         this.hidePopup();
       }
     }, 10);
   }
 
-  showRefinementOptions(event) {
-    // Prevent creating new popups during active refinement
-    if (this.isRefining) {
+  showOptimizationOptions(event) {
+    // Prevent creating new popups during active optimization
+    if (this.isOptimizing) {
       return;
     }
     
@@ -91,12 +91,12 @@ class PromptRefiner {
     
     const rect = this.selectionRange.getBoundingClientRect();
     
-    this.refinementPopup = document.createElement('div');
-    this.refinementPopup.className = 'prompt-refiner-popup';
-    this.refinementPopup.innerHTML = `
-      <div class="prompt-refiner-content">
-        <div class="prompt-refiner-header">
-          <span class="prompt-refiner-title">
+    this.optimizationPopup = document.createElement('div');
+    this.optimizationPopup.className = 'prompt-optimizer-popup';
+    this.optimizationPopup.innerHTML = `
+      <div class="prompt-optimizer-content">
+        <div class="prompt-optimizer-header">
+          <span class="prompt-optimizer-title":
             <svg class="header-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
               <polyline points="14,2 14,8 20,8"/>
@@ -106,68 +106,68 @@ class PromptRefiner {
             </svg>
             Grammar & Clarity
           </span>
-          <button class="prompt-refiner-close" id="closeRefiner">
+          <button class="prompt-optimizer-close" id="closeOptimizer">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"/>
               <line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
           </button>
         </div>
-        <div class="prompt-refiner-info">
+        <div class="prompt-optimizer-info">
           <small>Selected: ${this.selectedText.length} characters${this.selectedText.length > 4000 ? ' (large text)' : ''}</small>
         </div>
-        <div class="prompt-refiner-buttons">
-          <button id="refineBtn" class="prompt-refiner-btn primary">
+        <div class="prompt-optimizer-buttons">
+          <button id="optimizeBtn" class="prompt-optimizer-btn primary">
             <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
-            Fix Grammar & Clarity${this.selectedText.length > 4000 ? ' (may take longer)' : ''}
+            Optimize Grammar & Clarity${this.selectedText.length > 4000 ? ' (may take longer)' : ''}
           </button>
-          <button id="replaceBtn" class="prompt-refiner-btn secondary" style="display: none;">
+          <button id="replaceBtn" class="prompt-optimizer-btn secondary" style="display: none;">
             <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="20,6 9,17 4,12"/>
             </svg>
             Replace Text
           </button>
-          <button id="copyBtn" class="prompt-refiner-btn secondary" style="display: none;">
+          <button id="copyBtn" class="prompt-optimizer-btn secondary" style="display: none;">
             <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
             </svg>
-            Copy Refined
+            Copy Optimized
           </button>
         </div>
-        <div id="refinedText" class="prompt-refiner-result" style="display: none;"></div>
-        <div id="loadingIndicator" class="prompt-refiner-loading" style="display: none;">
+        <div id="optimizedText" class="prompt-optimizer-result" style="display: none;"></div>
+        <div id="loadingIndicator" class="prompt-optimizer-loading" style="display: none;">
           <div class="spinner"></div>
-          <span id="loadingMessage">Refining your prompt...</span>
+          <span id="loadingMessage">Optimizing your prompt...</span>
         </div>
-        ${!this.apiKey ? '<div class="prompt-refiner-error">⚠️ Please configure Gemini API key in extension popup</div>' : ''}
+        ${!this.apiKey ? '<div class="prompt-optimizer-error">⚠️ Please configure Gemini API key in extension popup</div>' : ''}
       </div>
     `;
     
     // Position the popup intelligently
-    this.positionPopup(this.refinementPopup, rect);
+    this.positionPopup(this.optimizationPopup, rect);
     
-    document.body.appendChild(this.refinementPopup);
+    document.body.appendChild(this.optimizationPopup);
     
     // Add event listeners
-    document.getElementById('refineBtn').addEventListener('click', this.refinePrompt.bind(this));
+    document.getElementById('optimizeBtn').addEventListener('click', this.optimizePrompt.bind(this));
     document.getElementById('replaceBtn').addEventListener('click', this.replaceText.bind(this));
-    document.getElementById('copyBtn').addEventListener('click', this.copyRefinedText.bind(this));
-    document.getElementById('closeRefiner').addEventListener('click', this.handleCloseClick.bind(this));
+    document.getElementById('copyBtn').addEventListener('click', this.copyOptimizedText.bind(this));
+    document.getElementById('closeOptimizer').addEventListener('click', this.handleCloseClick.bind(this));
     
     // Prevent popup from closing when clicking inside it
-    this.refinementPopup.addEventListener('mousedown', (e) => e.stopPropagation());
+    this.optimizationPopup.addEventListener('mousedown', (e) => e.stopPropagation());
     
     // Add window event listeners for responsive repositioning
     this.addRepositioningEventListeners();
   }
 
-  async refinePrompt() {
+  async optimizePrompt() {
     // Prevent multiple simultaneous requests
-    if (this.isRefining) {
+    if (this.isOptimizing) {
       return;
     }
 
@@ -177,27 +177,27 @@ class PromptRefiner {
     }
 
     const loadingIndicator = document.getElementById('loadingIndicator');
-    const refineBtn = document.getElementById('refineBtn');
-    const refinedTextDiv = document.getElementById('refinedText');
+    const optimizeBtn = document.getElementById('optimizeBtn');
+    const optimizedTextDiv = document.getElementById('optimizedText');
     
-    // Set refining state to prevent multiple requests
-    this.isRefining = true;
+    // Set optimizing state to prevent multiple requests
+    this.isOptimizing = true;
     
     // Show loading state with appropriate message
     const isLargeText = this.selectedText.length > 2000;
     const loadingMessage = document.getElementById('loadingMessage');
     loadingMessage.textContent = isLargeText ? 
-      'Refining large text, this may take a moment...' : 
+      'Optimizing large text, this may take a moment...' : 
       'Refining your prompt...';
     
     loadingIndicator.style.display = 'flex';
-    refineBtn.disabled = true;
-    refineBtn.classList.add('loading');
-    refineBtn.innerHTML = `
+    optimizeBtn.disabled = true;
+    optimizeBtn.classList.add('loading');
+    optimizeBtn.innerHTML = `
       <svg class="btn-icon spinner-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 12a9 9 0 11-6.219-8.56"/>
       </svg>
-      <span>Refining...</span>
+      <span>Optimizing...</span>
     `;
     
     // Disable other buttons during loading
@@ -207,17 +207,17 @@ class PromptRefiner {
     if (copyBtn) copyBtn.disabled = true;
     
     try {
-      const refinedPrompt = await this.callGeminiAPI(this.selectedText);
+      const optimizedPrompt = await this.callGeminiAPI(this.selectedText);
       
-      // Display the refined prompt
-      refinedTextDiv.textContent = refinedPrompt;
-      refinedTextDiv.style.display = 'block';
+      // Display the optimized prompt
+      optimizedTextDiv.textContent = optimizedPrompt;
+      optimizedTextDiv.style.display = 'block';
       
       // Show action buttons
       document.getElementById('replaceBtn').style.display = 'inline-flex';
       document.getElementById('copyBtn').style.display = 'inline-flex';
       
-      this.refinedPrompt = refinedPrompt;
+      this.optimizedPrompt = optimizedPrompt;
       
       // Reposition popup after content is added to prevent overflow
       setTimeout(() => {
@@ -225,9 +225,9 @@ class PromptRefiner {
       }, 50);
       
     } catch (error) {
-      console.error('AI Prompt Refiner: Error refining prompt:', error);
+      console.error('Instant Prompt Optimizer: Error optimizing prompt:', error);
       
-      let errorMessage = 'Error refining prompt. ';
+      let errorMessage = 'Error optimizing prompt. ';
       if (error.message.includes('API_KEY_INVALID')) {
         errorMessage += 'Invalid API key. Please check your Gemini API key.';
       } else if (error.message.includes('QUOTA_EXCEEDED')) {
@@ -243,19 +243,19 @@ class PromptRefiner {
         this.repositionPopupAfterExpansion();
       }, 50);
     } finally {
-      // Reset refining state
-      this.isRefining = false;
+      // Reset optimizing state
+      this.isOptimizing = false;
       
       // Hide loading state
       loadingIndicator.style.display = 'none';
-      refineBtn.disabled = false;
-      refineBtn.classList.remove('loading');
-      refineBtn.innerHTML = `
+      optimizeBtn.disabled = false;
+      optimizeBtn.classList.remove('loading');
+      optimizeBtn.innerHTML = `
         <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
         </svg>
-        Fix Grammar & Clarity
+Optimize Grammar & Clarity
       `;
       
       // Re-enable other buttons
@@ -273,17 +273,17 @@ class PromptRefiner {
     const isLargeText = text.length > 2000;
     
     const prompt = isLargeText ? 
-      `As a grammar and clarity expert, refine this text focusing exclusively on:
+      `As a grammar and clarity expert, optimize this text focusing exclusively on:
 - Correcting grammar, spelling, and punctuation errors
 - Improving sentence structure and readability
 - Using clear, precise language
 - Maintaining the exact original meaning and intent
 
-Text to refine:
+Text to optimize:
 "${text}"
 
-Return only the grammatically corrected and clarified version:` :
-      `You are a grammar and language clarity expert. Your task is to refine the following text by focusing ONLY on:
+Return only the grammatically corrected and optimized version:` :
+      `You are a grammar and language clarity expert. Your task is to optimize the following text by focusing ONLY on:
 
 1. Fixing grammar, spelling, and punctuation errors
 2. Improving sentence structure for better readability
@@ -296,9 +296,9 @@ Do NOT:
 - Make it more specific or actionable beyond clarity improvements
 - Add context that wasn't originally there
 
-Please refine this text: "${text}"
+Please optimize this text: "${text}"
 
-Respond with only the refined text, nothing else.`;
+Respond with only the optimized text, nothing else.`;
 
     // Adjust parameters based on text length
     const maxTokens = isLargeText ? 2048 : 1024;
@@ -382,30 +382,30 @@ Respond with only the refined text, nothing else.`;
   }
 
   replaceText() {
-    if (!this.refinedPrompt) return;
+    if (!this.optimizedPrompt) return;
     
     // Find the nearest input field or textarea
     const inputField = this.findNearestInputField();
     
     if (inputField) {
-      console.log('AI Prompt Refiner: Found input field:', inputField.tagName, inputField);
+      console.log('Instant Prompt Optimizer: Found input field:', inputField.tagName, inputField);
       
       // Handle different types of input elements
       if (inputField.contentEditable === 'true') {
-        console.log('AI Prompt Refiner: Replacing in contenteditable element');
+        console.log('Instant Prompt Optimizer: Replacing in contenteditable element');
         this.replaceInContentEditable(inputField);
       } else if (inputField.tagName === 'TEXTAREA' || inputField.tagName === 'INPUT') {
-        console.log('AI Prompt Refiner: Replacing in textarea/input element');
+        console.log('Instant Prompt Optimizer: Replacing in textarea/input element');
         this.replaceInTextInput(inputField);
       } else {
-        console.log('AI Prompt Refiner: Unknown input type, copying to clipboard');
-        this.copyRefinedText();
+        console.log('Instant Prompt Optimizer: Unknown input type, copying to clipboard');
+        this.copyOptimizedText();
         return;
       }
       
       this.hidePopup();
     } else {
-      console.log('AI Prompt Refiner: No input field found, copying to clipboard');
+      console.log('Instant Prompt Optimizer: No input field found, copying to clipboard');
       this.copyRefinedText();
     }
   }
@@ -418,12 +418,12 @@ Respond with only the refined text, nothing else.`;
     // Method 1: Try to replace only the selected text within existing content
     if (currentText.includes(this.selectedText)) {
       // Replace only the first occurrence of the selected text
-      const newText = currentText.replace(this.selectedText, this.refinedPrompt);
+      const newText = currentText.replace(this.selectedText, this.optimizedPrompt);
       element.textContent = newText;
       
       // Calculate cursor position after replacement
       const beforeSelected = currentText.indexOf(this.selectedText);
-      const newCursorPos = beforeSelected + this.refinedPrompt.length;
+      const newCursorPos = beforeSelected + this.optimizedPrompt.length;
       
       // Set cursor position after the replaced text
       setTimeout(() => {
@@ -461,14 +461,14 @@ Respond with only the refined text, nothing else.`;
           const sel = window.getSelection();
           sel.removeAllRanges();
           sel.addRange(this.selectionRange);
-          document.execCommand('insertText', false, this.refinedPrompt);
+          document.execCommand('insertText', false, this.optimizedPrompt);
         } catch (e) {
           // Final fallback: replace entire content
-          element.textContent = this.refinedPrompt;
+          element.textContent = this.optimizedPrompt;
         }
       } else {
         // Final fallback: replace entire content
-        element.textContent = this.refinedPrompt;
+        element.textContent = this.optimizedPrompt;
       }
     }
     
@@ -498,8 +498,8 @@ Respond with only the refined text, nothing else.`;
     if (currentValue.includes(this.selectedText)) {
       // Replace only the first occurrence of the selected text
       const beforeSelected = currentValue.indexOf(this.selectedText);
-      newValue = currentValue.replace(this.selectedText, this.refinedPrompt);
-      newCursorPos = beforeSelected + this.refinedPrompt.length;
+      newValue = currentValue.replace(this.selectedText, this.optimizedPrompt);
+      newCursorPos = beforeSelected + this.optimizedPrompt.length;
     } else {
       // Fallback: Try to use stored selection info or current selection
       let selectionStart, selectionEnd;
@@ -516,9 +516,9 @@ Respond with only the refined text, nothing else.`;
       
       // Replace the selected range
       newValue = currentValue.substring(0, selectionStart) + 
-                this.refinedPrompt + 
+                this.optimizedPrompt + 
                 currentValue.substring(selectionEnd);
-      newCursorPos = selectionStart + this.refinedPrompt.length;
+      newCursorPos = selectionStart + this.optimizedPrompt.length;
     }
     
     // Set the new value
@@ -650,10 +650,10 @@ Respond with only the refined text, nothing else.`;
     );
   }
 
-  copyRefinedText() {
-    if (!this.refinedPrompt) return;
+  copyOptimizedText() {
+    if (!this.optimizedPrompt) return;
     
-    navigator.clipboard.writeText(this.refinedPrompt).then(() => {
+    navigator.clipboard.writeText(this.optimizedPrompt).then(() => {
       // Text copied successfully - no visual feedback needed
     }).catch(err => {
       console.error('Failed to copy text: ', err);
@@ -661,11 +661,11 @@ Respond with only the refined text, nothing else.`;
   }
 
   handleCloseClick() {
-    if (this.isRefining) {
+    if (this.isOptimizing) {
       // Show a message that operation is in progress
-      const closeBtn = document.getElementById('closeRefiner');
+      const closeBtn = document.getElementById('closeOptimizer');
       const originalTitle = closeBtn.title;
-      closeBtn.title = 'Please wait, refining in progress...';
+      closeBtn.title = 'Please wait, optimizing in progress...';
       closeBtn.style.opacity = '0.5';
       closeBtn.style.cursor = 'not-allowed';
       
@@ -685,17 +685,17 @@ Respond with only the refined text, nothing else.`;
   }
 
   hidePopup() {
-    // Prevent popup closure during refining
-    if (this.isRefining) {
+    // Prevent popup closure during optimizing
+    if (this.isOptimizing) {
       return;
     }
     
-    if (this.refinementPopup) {
+    if (this.optimizationPopup) {
       // Clean up event listeners
       this.removeRepositioningEventListeners();
       
-      this.refinementPopup.remove();
-      this.refinementPopup = null;
+      this.optimizationPopup.remove();
+      this.optimizationPopup = null;
     }
     
     // Set flag to prevent immediate reopening
@@ -707,7 +707,7 @@ Respond with only the refined text, nothing else.`;
 
   handleMouseDown(event) {
     // Check if clicking outside the popup
-    if (this.refinementPopup && !this.refinementPopup.contains(event.target)) {
+    if (this.optimizationPopup && !this.optimizationPopup.contains(event.target)) {
       this.clearSelection();
       this.hidePopup();
     }
@@ -815,11 +815,11 @@ Respond with only the refined text, nothing else.`;
   }
 
   repositionPopupAfterExpansion() {
-    if (!this.refinementPopup || !this.refinementPopup._positionInfo) {
+    if (!this.optimizationPopup || !this.optimizationPopup._positionInfo) {
       return;
     }
 
-    const popup = this.refinementPopup;
+    const popup = this.optimizationPopup;
     const { selectionRect, preferredVerticalPosition } = popup._positionInfo;
     
     // Get viewport dimensions
@@ -952,9 +952,9 @@ Respond with only the refined text, nothing else.`;
   }
 }
 
-// Initialize the prompt refiner when the page loads
+// Initialize the prompt optimizer when the page loads
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => new PromptRefiner());
+  document.addEventListener('DOMContentLoaded', () => new PromptOptimizer());
 } else {
-  new PromptRefiner();
+  new PromptOptimizer();
 }

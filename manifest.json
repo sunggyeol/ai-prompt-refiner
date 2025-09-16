@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "AI Prompt Refiner",
+  "name": "Instant Prompt Optimizer",
   "version": "0.1.0",
-  "description": "Refine your highlighted text into better AI prompts using Google's Gemini AI",
+  "description": "Instantly optimize your highlighted text into better AI prompts using Google's Gemini AI",
   
   "icons": {
     "16": "icons/icon16.png",
@@ -12,7 +12,6 @@
   },
   
   "permissions": [
-    "activeTab",
     "storage"
   ],
   
@@ -24,7 +23,7 @@
     {
       "matches": [
         "*://claude.ai/*",
-        "*://www.perplexity.ai/*",
+        "*://perplexity.ai/*",
         "*://chatgpt.com/*",
         "*://gemini.google.com/*",
         "*://grok.com/*"
@@ -43,6 +42,6 @@
   
   "action": {
     "default_popup": "popup.html",
-    "default_title": "AI Prompt Refiner"
+    "default_title": "Instant Prompt Optimizer"
   }
 }

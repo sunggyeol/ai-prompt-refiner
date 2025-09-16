@@ -1,13 +1,13 @@
-# AI Prompt Refiner Chrome Extension
+# Instant Prompt Optimizer Chrome Extension
 
-A Chrome extension that helps you refine your prompts for better AI conversations. Simply highlight text on AI websites and get an improved, more effective prompt using Google's Gemini AI.
+A Chrome extension that helps you instantly optimize your prompts for better AI conversations. Simply highlight text on AI websites and get an improved, more effective prompt using Google's Gemini AI.
 
 ## ✨ Features
 
 - **Smart Text Selection**: Highlight any text on supported AI websites
-- **AI-Powered Refinement**: Uses Google's Gemini Cloud API to improve your prompts
-- **Instant Replacement**: Replace original text with refined prompts directly in input fields
-- **Copy to Clipboard**: Easily copy refined prompts for use elsewhere
+- **AI-Powered Optimization**: Uses Google's Gemini Cloud API to improve your prompts
+- **Instant Replacement**: Replace original text with optimized prompts directly in input fields
+- **Copy to Clipboard**: Easily copy optimized prompts for use elsewhere
 - **Multi-site Support**: Works on Claude, ChatGPT, Gemini, and Perplexity
 
 ## 🌐 Supported Websites
@@ -62,19 +62,19 @@ Then update the manifest.json to include the icons section.
 
 2. **Visit a supported AI website** (Claude, ChatGPT, Gemini, or Perplexity)
 
-3. **Highlight text** you want to refine - this could be:
+3. **Highlight text** you want to optimize - this could be:
    - A rough draft of your question
    - Text with grammar issues
    - A prompt that needs to be more specific
    - Any text you want to improve for AI interaction
 
-4. **Click "Refine Prompt"** in the popup that appears
+4. **Click "Optimize Prompt"** in the popup that appears
 
 5. **Wait for AI processing** - the extension will use Google's Gemini AI to improve your text
 
-6. **Use the refined prompt**:
+6. **Use the optimized prompt**:
    - Click "Replace Text" to automatically insert it into the input field
-   - Click "Copy Refined" to copy it to your clipboard
+   - Click "Copy Optimized" to copy it to your clipboard
    - Or manually copy the improved text
 
 ## 🎯 Example Use Cases
@@ -109,9 +109,9 @@ Then update the manifest.json to include the icons section.
 2. Make sure you're on a supported website
 3. Check if the extension is enabled in `chrome://extensions/`
 
-### Refined Text Not Inserting
-1. Use the "Copy Refined" button as a fallback
-2. Try manually pasting the refined text
+### Optimized Text Not Inserting
+1. Use the "Copy Optimized" button as a fallback
+2. Try manually pasting the optimized text
 3. Some websites may have specific input field restrictions
 
 ### API Quota Issues

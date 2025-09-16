@@ -1,4 +1,4 @@
-// Popup script for AI Prompt Refiner - Gemini Cloud API Version
+// Popup script for Instant Prompt Optimizer - Gemini Cloud API Version
 document.addEventListener('DOMContentLoaded', async () => {
   const statusIndicator = document.getElementById('statusIndicator');
   const statusContent = document.getElementById('statusContent');
@@ -10,9 +10,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const result = await chrome.storage.sync.get(['geminiApiKey']);
     if (result.geminiApiKey) {
       apiKeyInput.value = result.geminiApiKey;
-      updateStatus('ready', 'API key configured! You can now refine prompts on supported websites.');
+      updateStatus('ready', 'API key configured! You can now optimize prompts on supported websites.');
     } else {
-      updateStatus('error', 'Please configure your Gemini API key to start refining prompts.');
+      updateStatus('error', 'Please configure your Gemini API key to start optimizing prompts.');
     }
   } catch (error) {
     console.error('Error loading API key:', error);
@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (isValid) {
         // Save the API key
         await chrome.storage.sync.set({ geminiApiKey: apiKey });
-        updateStatus('ready', 'API key saved successfully! You can now refine prompts on supported websites.');
+        updateStatus('ready', 'API key saved successfully! You can now optimize prompts on supported websites.');
         
         // Visual feedback
         apiKeyInput.classList.add('valid');

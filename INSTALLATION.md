@@ -14,7 +14,7 @@
 1. Open `chrome://extensions/` in Chrome
 2. Enable **"Developer mode"** (toggle in top right)
 3. Click **"Load unpacked"**
-4. Select the `prompt-refiner` folder
+4. Select the `prompt-optimizer` folder
 5. The extension should appear in your extensions list
 
 ### 3. Configure Your API Key
@@ -28,8 +28,8 @@
 
 1. Open the included `test.html` file in Chrome
 2. Highlight any sample text
-3. A refinement popup should appear
-4. Click "Refine Prompt" to test the AI functionality
+3. An optimization popup should appear
+4. Click "Optimize Prompt" to test the AI functionality
 
 ## 🔧 Troubleshooting
 
@@ -55,7 +55,7 @@
 After installation:
 1. Visit your favorite AI website (Claude, ChatGPT, etc.)
 2. Highlight poorly written prompts or questions
-3. Use the extension to refine them into better AI prompts
+3. Use the extension to optimize them into better AI prompts
 4. Enjoy more effective AI conversations!
 
 ## 🆘 Need Help?

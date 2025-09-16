@@ -3,9 +3,9 @@
 ## ✅ Completed Preparations
 
 ### 1. Manifest Review ✅
-- **Name**: "AI Prompt Refiner" ✅
+- **Name**: "Instant Prompt Optimizer" ✅
 - **Version**: Updated to "0.1.0" (good starting point) ✅
-- **Description**: "Refine your highlighted text into better AI prompts using Google's Gemini AI" (79/132 chars) ✅
+- **Description**: "Instantly optimize your highlighted text into better AI prompts using Google's Gemini AI" (88/132 chars) ✅
 - **Icons**: Added icons section to manifest ✅
 - **Permissions**: Minimal and appropriate ✅
 
@@ -22,7 +22,7 @@
 - **⚠️ ACTION NEEDED**: Replace placeholder text files with actual PNG images
 
 ### 4. Extension Package ✅
-- ZIP file created: `ai-prompt-refiner-v0.1.0.zip`
+- ZIP file created: `instant-prompt-optimizer-v0.1.0.zip`
 - Contains all required files with proper structure
 - Manifest.json in root directory ✅
 
@@ -31,7 +31,7 @@
 ### 1. Replace Icon Placeholders **CRITICAL**
 You need to create actual PNG icon files to replace the text placeholders:
 - Use any image editing software (Photoshop, GIMP, Canva, etc.)
-- Create icons that represent your extension (suggestion: combination of AI/brain icon + text refinement symbol)
+- Create icons that represent your extension (suggestion: combination of AI/brain icon + text optimization symbol)
 - Ensure they are proper PNG format
 - Required sizes: 16x16, 32x32, 48x48, 128x128 pixels
 
@@ -51,7 +51,7 @@ Prepare additional content for the Chrome Web Store listing:
 - **Screenshots**: At least 1, recommended 3-5 screenshots showing:
   - Extension popup with API key setup
   - Text selection on a supported website
-  - Refined prompt results
+  - Optimized prompt results
   - Before/after comparison
 
 #### Store Listing Text:
@@ -90,7 +90,7 @@ Prepare additional content for the Chrome Web Store listing:
 
 ## 📁 Files Ready for Submission
 
-Your ZIP file `ai-prompt-refiner-v0.1.0.zip` contains:
+Your ZIP file `instant-prompt-optimizer-v0.1.0.zip` contains:
 - manifest.json (✅ properly configured)
 - content.js (✅ main functionality)
 - popup.html (✅ extension popup)

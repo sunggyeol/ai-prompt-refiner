@@ -1,4 +1,4 @@
-# Privacy Policy for AI Prompt Refiner
+# Privacy Policy for Instant Prompt Optimizer
 
 ## Data Collection
 We do not collect, store, or transmit any personal user data. 
@@ -7,7 +7,7 @@ We do not collect, store, or transmit any personal user data.
 Your Google Gemini API key is stored locally in your browser using Chrome's storage API. This key never leaves your device except for direct API calls to Google's Gemini service.
 
 ## Text Processing
-Selected text is sent directly to Google's Gemini API for refinement. We do not store, log, or have access to this text. All processing is handled by Google's servers according to their privacy policy.
+Selected text is sent directly to Google's Gemini API for optimization. We do not store, log, or have access to this text. All processing is handled by Google's servers according to their privacy policy.
 
 ## Third-Party Services
 This extension uses Google's Gemini API. Your use of this service is subject to Google's Privacy Policy and Terms of Service.
