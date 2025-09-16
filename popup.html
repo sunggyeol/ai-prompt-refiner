@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Prompt Refiner</title>
+  <style>
+    body {
+      width: 320px;
+      padding: 0;
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+      background: #0c0c0c;
+      color: #fafafa;
+    }
+    
+    .container {
+      padding: 0;
+    }
+    
+    .header {
+      background: #18181b;
+      border-bottom: 1px solid #27272a;
+      padding: 16px 20px;
+      text-align: center;
+    }
+    
+    .logo {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+    
+    .title {
+      font-size: 16px;
+      font-weight: 500;
+      margin: 0;
+      color: #fafafa;
+    }
+    
+    .subtitle {
+      font-size: 13px;
+      color: #a1a1aa;
+      margin: 4px 0 0 0;
+    }
+    
+    .api-key-section {
+      background: #0c0c0c;
+      border-bottom: 1px solid #27272a;
+      padding: 20px;
+    }
+    
+    .section-title {
+      font-weight: 500;
+      font-size: 14px;
+      margin-bottom: 12px;
+      color: #fafafa;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .input-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    
+    #apiKeyInput {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid #27272a;
+      border-radius: 6px;
+      background: #18181b;
+      color: #fafafa;
+      font-size: 13px;
+      transition: all 0.2s ease;
+    }
+    
+    #apiKeyInput::placeholder {
+      color: #71717a;
+    }
+    
+    #apiKeyInput:focus {
+      outline: none;
+      border-color: #3f3f46;
+      background: #27272a;
+    }
+    
+    .save-btn {
+      padding: 8px 16px;
+      background: #fafafa;
+      border: 1px solid #fafafa;
+      border-radius: 6px;
+      color: #18181b;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 36px;
+    }
+    
+    .save-btn:hover {
+      background: #e4e4e7;
+      border-color: #e4e4e7;
+    }
+    
+    .save-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      background: #a1a1aa;
+      border-color: #a1a1aa;
+    }
+    
+    .api-key-help {
+      font-size: 12px;
+      text-align: center;
+      color: #a1a1aa;
+    }
+    
+    .api-key-help a {
+      color: #fafafa;
+      text-decoration: none;
+      border-bottom: 1px solid #71717a;
+      transition: all 0.2s ease;
+    }
+    
+    .api-key-help a:hover {
+      border-bottom-color: #fafafa;
+    }
+    
+    .status {
+      background: #0c0c0c;
+      border-bottom: 1px solid #27272a;
+      padding: 20px;
+    }
+    
+    .status-title {
+      font-weight: 500;
+      font-size: 14px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #fafafa;
+    }
+    
+    .status-content {
+      font-size: 13px;
+      color: #a1a1aa;
+      line-height: 1.4;
+    }
+    
+    .instructions {
+      background: #0c0c0c;
+      border-bottom: 1px solid #27272a;
+      padding: 20px;
+    }
+    
+    .instructions h3 {
+      margin: 0 0 12px 0;
+      font-size: 14px;
+      font-weight: 500;
+      color: #fafafa;
+    }
+    
+    .instructions ol {
+      margin: 0;
+      padding-left: 16px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #a1a1aa;
+    }
+    
+    .instructions li {
+      margin-bottom: 4px;
+    }
+    
+    .footer {
+      text-align: center;
+      font-size: 12px;
+      color: #71717a;
+      padding: 16px 20px;
+      background: #0c0c0c;
+    }
+    
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    
+    .status-ready {
+      background: #10b981;
+    }
+    
+    .status-loading {
+      background: #f59e0b;
+      animation: pulse 1.5s infinite;
+    }
+    
+    .status-error {
+      background: #ef4444;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Lucide-style icons */
+    .icon {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+      flex-shrink: 0;
+    }
+
+    /* Enhanced styling for better visual hierarchy */
+    .instructions h3 {
+      display: flex;
+      align-items: center;
+    }
+    
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    /* Save button success state */
+    .save-btn.success {
+      background: #10b981 !important;
+      border-color: #10b981 !important;
+      color: white !important;
+    }
+    
+    /* Input validation states */
+    #apiKeyInput.valid {
+      border-color: #10b981;
+      background: #0f1419;
+    }
+    
+    #apiKeyInput.invalid {
+      border-color: #ef4444;
+      background: #1a0e0e;
+    }
+    
+    /* Loading state for save button */
+    .save-btn.loading {
+      pointer-events: none;
+      opacity: 0.8;
+    }
+    
+    .save-btn.loading .icon {
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* Smooth transitions */
+    * {
+      box-sizing: border-box;
+    }
+    
+    .api-key-section,
+    .status,
+    .instructions {
+      transition: background-color 0.2s ease;
+    }
+    
+    /* Hover states for sections */
+    .api-key-section:hover,
+    .status:hover,
+    .instructions:hover {
+      background: #111111;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">✨</div>
+      <h1 class="title">AI Prompt Refiner</h1>
+      <p class="subtitle">Enhance your AI conversations</p>
+    </div>
+    
+    <div class="api-key-section">
+      <div class="section-title">
+        <svg class="icon" viewBox="0 0 24 24">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <circle cx="12" cy="16" r="1"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        Gemini API Key
+      </div>
+      <div class="input-group">
+        <input type="password" id="apiKeyInput" placeholder="Enter your Gemini API key..." />
+        <button id="saveApiKey" class="save-btn">
+          <svg class="icon" viewBox="0 0 24 24" style="width: 14px; height: 14px; margin-right: 4px;">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+            <polyline points="17,21 17,13 7,13 7,21"/>
+            <polyline points="7,3 7,8 15,8"/>
+          </svg>
+          Save
+        </button>
+      </div>
+      <div class="api-key-help">
+        <a href="https://aistudio.google.com/app/apikey" target="_blank">Get your free API key</a>
+      </div>
+    </div>
+    
+    <div class="status">
+      <div class="status-title">
+        <span class="status-indicator" id="statusIndicator"></span>
+        <svg class="icon" viewBox="0 0 24 24" style="width: 14px; height: 14px;">
+          <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+          <point cx="12" cy="17" r="1"/>
+        </svg>
+        Status
+      </div>
+      <div class="status-content" id="statusContent">
+        Checking configuration...
+      </div>
+    </div>
+    
+    <div class="instructions">
+      <h3>
+        <svg class="icon" viewBox="0 0 24 24" style="width: 14px; height: 14px; margin-right: 6px;">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+          <point cx="12" cy="17" r="1"/>
+        </svg>
+        How to use:
+      </h3>
+      <ol>
+        <li>Visit any supported AI website</li>
+        <li>Highlight text you want to refine</li>
+        <li>Click "Fix Grammar & Clarity" in the popup</li>
+        <li>Use the improved prompt in your conversation</li>
+      </ol>
+    </div>
+    
+    <div class="footer">
+      <svg class="icon" viewBox="0 0 24 24" style="width: 12px; height: 12px; margin-right: 4px;">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
+      </svg>
+      Supported sites: Claude, ChatGPT, Gemini, Perplexity
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
