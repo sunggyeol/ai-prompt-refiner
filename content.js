@@ -24,6 +24,9 @@ class PromptOptimizer {
       console.error('Instant Prompt Optimizer: Error loading API key:', error);
     }
 
+    // Try to restore any pending optimization state
+    await this.restoreOptimizationState();
+
     // Set up event listeners
     document.addEventListener('mouseup', this.handleTextSelection.bind(this));
     document.addEventListener('keyup', this.handleTextSelection.bind(this));
@@ -35,6 +38,9 @@ class PromptOptimizer {
         this.apiKey = changes.geminiApiKey.newValue;
       }
     });
+    
+    // Clean up old optimization data (older than 1 hour)
+    this.cleanupOldOptimizations();
   }
 
   handleTextSelection(event) {
@@ -58,9 +64,41 @@ class PromptOptimizer {
       const selection = window.getSelection();
       const selectedText = selection.toString().trim();
       
-      if (selectedText.length > 0 && selectedText.length < 8000) {
+      if (selectedText.length > 0 && selectedText.length < 500000) {
+        // Check if the selection is within an input field
+        if (!this.isSelectionInInputField(selection)) {
+          console.log('Instant Prompt Optimizer: Selection not in input field, ignoring');
+          this.hidePopup();
+          return;
+        }
+        
+        // Check if the input field itself is empty or only contains the selected text
+        // This prevents showing popup when user deletes text after replacement
+        if (!this.isInputFieldContentValid(selection, selectedText)) {
+          console.log('Instant Prompt Optimizer: Input field is empty or invalid, ignoring');
+          this.hidePopup();
+          this.clearCachedOptimization();
+          return;
+        }
+        
+        // If this is a new selection different from cached one, clear the cache
+        if (this.selectedText && this.selectedText !== selectedText) {
+          this.clearCachedOptimization();
+        }
+        
         this.selectedText = selectedText;
-        this.selectionRange = selection.getRangeAt(0).cloneRange(); // Clone to preserve
+        
+        // For very long text, use a more robust range selection
+        let selectionRange = null;
+        try {
+          if (selection.rangeCount > 0) {
+            selectionRange = selection.getRangeAt(0).cloneRange();
+          }
+        } catch (error) {
+          console.log('Could not get selection range:', error);
+        }
+        
+        this.selectionRange = selectionRange;
         
         // Store additional selection info for input fields
         const activeElement = document.activeElement;
@@ -74,11 +112,35 @@ class PromptOptimizer {
           this.targetElement = null;
         }
         
+        console.log(`Instant Prompt Optimizer: Showing popup for ${selectedText.length} characters in input field`);
         this.showOptimizationOptions(event);
       } else {
+        if (selectedText.length >= 500000) {
+          console.log(`Instant Prompt Optimizer: Text too long (${selectedText.length} chars), max is 500,000`);
+        } else if (selectedText.length === 0) {
+          console.log('Instant Prompt Optimizer: No text selected, clearing any cached optimization');
+          this.clearCachedOptimization();
+        }
         this.hidePopup();
       }
     }, 10);
+  }
+
+  getOptimizeButtonText() {
+    const isLargeText = this.selectedText.length > 10000;
+    const isShortSentence = this.selectedText.length < 100 && this.selectedText.split(/[.!?]+/).length <= 2;
+    
+    if (isShortSentence) {
+      return 'Improve Grammar & Clarity';
+    } else if (isLargeText) {
+      return 'Optimize for AI Understanding';
+    } else {
+      return 'Optimize Text';
+    }
+  }
+
+  getHeaderTitle() {
+    return 'Instant Prompt Optimizer';
   }
 
   showOptimizationOptions(event) {
@@ -87,9 +149,49 @@ class PromptOptimizer {
       return;
     }
     
+    // Check if a popup already exists in the DOM and remove it
+    const existingPopup = document.querySelector('.prompt-optimizer-popup');
+    if (existingPopup) {
+      console.log('Instant Prompt Optimizer: Found existing popup, removing it');
+      existingPopup.remove();
+    }
+    
     this.hidePopup(); // Remove any existing popup
     
-    const rect = this.selectionRange.getBoundingClientRect();
+    // Get selection rectangle, with fallback for long text
+    let rect;
+    try {
+      if (this.selectionRange) {
+        rect = this.selectionRange.getBoundingClientRect();
+      } else {
+        // Fallback: use current selection or cursor position
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+          rect = selection.getRangeAt(0).getBoundingClientRect();
+        } else {
+          // Last resort: position near cursor or center of viewport
+          rect = {
+            top: window.scrollY + window.innerHeight / 3,
+            left: window.scrollX + window.innerWidth / 2 - 160,
+            bottom: window.scrollY + window.innerHeight / 3 + 20,
+            right: window.scrollX + window.innerWidth / 2 + 160,
+            width: 320,
+            height: 20
+          };
+        }
+      }
+    } catch (error) {
+      console.log('Error getting selection rect:', error);
+      // Fallback positioning
+      rect = {
+        top: window.scrollY + window.innerHeight / 3,
+        left: window.scrollX + window.innerWidth / 2 - 160,
+        bottom: window.scrollY + window.innerHeight / 3 + 20,
+        right: window.scrollX + window.innerWidth / 2 + 160,
+        width: 320,
+        height: 20
+      };
+    }
     
     this.optimizationPopup = document.createElement('div');
     this.optimizationPopup.className = 'prompt-optimizer-popup';
@@ -104,7 +206,7 @@ class PromptOptimizer {
               <line x1="16" y1="17" x2="8" y2="17"/>
               <polyline points="10,9 9,9 8,9"/>
             </svg>
-            Grammar & Clarity
+            ${this.getHeaderTitle()}
           </span>
           <button class="prompt-optimizer-close" id="closeOptimizer">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -114,7 +216,11 @@ class PromptOptimizer {
           </button>
         </div>
         <div class="prompt-optimizer-info">
-          <small>Selected: ${this.selectedText.length} characters${this.selectedText.length > 4000 ? ' (large text)' : ''}</small>
+          <small>Selected: ${this.selectedText.length.toLocaleString()} characters${
+            this.selectedText.length > 100000 ? ' (very large document)' :
+            this.selectedText.length > 50000 ? ' (large document)' :
+            this.selectedText.length > 10000 ? ' (large text)' : ''
+          }</small>
         </div>
         <div class="prompt-optimizer-buttons">
           <button id="optimizeBtn" class="prompt-optimizer-btn primary">
@@ -122,9 +228,9 @@ class PromptOptimizer {
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
-            Optimize Grammar & Clarity${this.selectedText.length > 4000 ? ' (may take longer)' : ''}
+            ${this.getOptimizeButtonText()}
           </button>
-          <button id="replaceBtn" class="prompt-optimizer-btn secondary" style="display: none;">
+          <button id="replaceBtn" class="prompt-optimizer-btn primary" style="display: none;">
             <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="20,6 9,17 4,12"/>
             </svg>
@@ -141,7 +247,7 @@ class PromptOptimizer {
         <div id="optimizedText" class="prompt-optimizer-result" style="display: none;"></div>
         <div id="loadingIndicator" class="prompt-optimizer-loading" style="display: none;">
           <div class="spinner"></div>
-          <span id="loadingMessage">Optimizing your prompt...</span>
+          <span id="loadingMessage">Optimizing your prompt for AI understanding...</span>
         </div>
         ${!this.apiKey ? '<div class="prompt-optimizer-error">⚠️ Please configure Gemini API key in extension popup</div>' : ''}
       </div>
@@ -163,6 +269,9 @@ class PromptOptimizer {
     
     // Add window event listeners for responsive repositioning
     this.addRepositioningEventListeners();
+    
+    // Check if we have a cached optimization for this text
+    this.checkForCachedOptimization();
   }
 
   async optimizePrompt() {
@@ -183,12 +292,24 @@ class PromptOptimizer {
     // Set optimizing state to prevent multiple requests
     this.isOptimizing = true;
     
+    // Create a unique key for this optimization session
+    const sessionKey = `optimization_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
     // Show loading state with appropriate message
-    const isLargeText = this.selectedText.length > 2000;
+    const isLargeText = this.selectedText.length > 10000;
+    const isVeryLargeText = this.selectedText.length > 50000;
+    const isShortSentence = this.selectedText.length < 100 && this.selectedText.split(/[.!?]+/).length <= 2;
     const loadingMessage = document.getElementById('loadingMessage');
-    loadingMessage.textContent = isLargeText ? 
-      'Optimizing large text, this may take a moment...' : 
-      'Refining your prompt...';
+    
+    if (isShortSentence) {
+      loadingMessage.textContent = 'Improving grammar and clarity...';
+    } else if (isVeryLargeText) {
+      loadingMessage.textContent = 'Processing large document, this may take up to a minute...';
+    } else if (isLargeText) {
+      loadingMessage.textContent = 'Structuring for better AI understanding, this may take a moment...';
+    } else {
+      loadingMessage.textContent = 'Optimizing your text...';
+    }
     
     loadingIndicator.style.display = 'flex';
     optimizeBtn.disabled = true;
@@ -209,15 +330,32 @@ class PromptOptimizer {
     try {
       const optimizedPrompt = await this.callGeminiAPI(this.selectedText);
       
+      // Store optimization result in both memory and persistent storage
+      this.optimizedPrompt = optimizedPrompt;
+      this.currentSessionKey = sessionKey;
+      
+      // Save to chrome storage for persistence across tab switches
+      const optimizationData = {
+        originalText: this.selectedText,
+        optimizedText: optimizedPrompt,
+        timestamp: Date.now(),
+        url: window.location.href,
+        sessionKey: sessionKey
+      };
+      
+      await chrome.storage.local.set({
+        [sessionKey]: optimizationData,
+        currentOptimization: sessionKey
+      });
+      
       // Display the optimized prompt
       optimizedTextDiv.textContent = optimizedPrompt;
       optimizedTextDiv.style.display = 'block';
       
-      // Show action buttons
+      // Hide the optimize button and show action buttons
+      optimizeBtn.style.display = 'none';
       document.getElementById('replaceBtn').style.display = 'inline-flex';
       document.getElementById('copyBtn').style.display = 'inline-flex';
-      
-      this.optimizedPrompt = optimizedPrompt;
       
       // Reposition popup after content is added to prevent overflow
       setTimeout(() => {
@@ -255,7 +393,7 @@ class PromptOptimizer {
           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
         </svg>
-Optimize Grammar & Clarity
+Optimize for AI Understanding
       `;
       
       // Re-enable other buttons
@@ -269,21 +407,15 @@ Optimize Grammar & Clarity
   async callGeminiAPI(text) {
     const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemma-3-27b-it:generateContent?key=${this.apiKey}`;
     
-    // Create a more efficient prompt based on text length
-    const isLargeText = text.length > 2000;
+    // Determine optimization approach based on text length and complexity
+    const isLargeText = text.length > 10000;
+    const isShortSentence = text.length < 100 && text.split(/[.!?]+/).length <= 2;
     
-    const prompt = isLargeText ? 
-      `As a grammar and clarity expert, optimize this text focusing exclusively on:
-- Correcting grammar, spelling, and punctuation errors
-- Improving sentence structure and readability
-- Using clear, precise language
-- Maintaining the exact original meaning and intent
-
-Text to optimize:
-"${text}"
-
-Return only the grammatically corrected and optimized version:` :
-      `You are a grammar and language clarity expert. Your task is to optimize the following text by focusing ONLY on:
+    let prompt;
+    
+    if (isShortSentence) {
+      // For short sentences, focus on grammar and clarity
+      prompt = `You are a grammar and clarity expert. Your task is to improve this text by focusing ONLY on:
 
 1. Fixing grammar, spelling, and punctuation errors
 2. Improving sentence structure for better readability
@@ -293,15 +425,44 @@ Return only the grammatically corrected and optimized version:` :
 Do NOT:
 - Add new content or requirements
 - Change the core message or intent
-- Make it more specific or actionable beyond clarity improvements
+- Make it more complex or verbose
 - Add context that wasn't originally there
 
-Please optimize this text: "${text}"
+Please improve this text: "${text}"
+
+Respond with only the improved text, nothing else.`;
+    } else if (isLargeText) {
+      // For large text, optimize for LLM consumption
+      prompt = `You are an AI prompt optimization expert. Transform this text into a clear, well-structured prompt that LLMs can easily understand and follow by:
+
+- Breaking down complex requests into clear, numbered steps
+- Using specific, unambiguous language
+- Organizing information in a logical hierarchy
+- Adding necessary context for clarity
+- Structuring as clear instructions or requests
+
+Text to optimize:
+"${text}"
+
+Return only the LLM-optimized version:`;
+    } else {
+      // For medium-length text, balance both approaches
+      prompt = `You are a communication expert. Optimize this text to be clearer and more effective by:
+
+1. Fixing any grammar, spelling, or clarity issues
+2. Making the request more specific and actionable
+3. Structuring information logically
+4. Maintaining the exact original intent
+
+Text to optimize: "${text}"
 
 Respond with only the optimized text, nothing else.`;
+    }
 
-    // Adjust parameters based on text length
-    const maxTokens = isLargeText ? 2048 : 1024;
+    // Adjust parameters based on text length - be generous with Gemini's 1M context window
+    const maxTokens = text.length > 50000 ? 8192 : 
+                     text.length > 10000 ? 4096 : 
+                     text.length > 1000 ? 2048 : 1024;
     
     const requestBody = {
       contents: [
@@ -340,8 +501,11 @@ Respond with only the optimized text, nothing else.`;
       ]
     };
 
-    // Add timeout for large text processing
-    const timeoutMs = isLargeText ? 30000 : 15000; // 30s for large text, 15s for normal
+    // Add timeout for large text processing - be more generous for very large texts
+    const timeoutMs = text.length > 100000 ? 120000 : // 2 minutes for very large texts
+                     text.length > 50000 ? 90000 :   // 1.5 minutes for large texts
+                     text.length > 10000 ? 60000 :   // 1 minute for medium-large texts
+                     30000; // 30s for normal texts
     
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -404,9 +568,12 @@ Respond with only the optimized text, nothing else.`;
       }
       
       this.hidePopup();
+      
+      // Clear the stored optimization since text has been replaced
+      this.clearStoredOptimization();
     } else {
       console.log('Instant Prompt Optimizer: No input field found, copying to clipboard');
-      this.copyRefinedText();
+      this.copyOptimizedText();
     }
   }
 
@@ -650,6 +817,151 @@ Respond with only the optimized text, nothing else.`;
     );
   }
 
+  isSelectionInInputField(selection) {
+    // Check if the current selection is within an input field
+    if (!selection || selection.rangeCount === 0) {
+      return false;
+    }
+
+    try {
+      const range = selection.getRangeAt(0);
+      const container = range.commonAncestorContainer;
+      
+      // Walk up the DOM tree to find if we're inside an input field
+      let element = container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
+      
+      while (element && element !== document.body) {
+        // Check for standard input fields
+        if (element.tagName === 'TEXTAREA' || element.tagName === 'INPUT') {
+          return this.isValidInputField(element);
+        }
+        
+        // Check for contenteditable elements
+        if (element.contentEditable === 'true') {
+          return this.isValidInputField(element);
+        }
+        
+        // Check for specific AI chat platforms' input elements
+        if (this.isAIChatInputElement(element)) {
+          return true;
+        }
+        
+        element = element.parentElement;
+      }
+      
+      return false;
+    } catch (error) {
+      console.log('Error checking if selection is in input field:', error);
+      return false;
+    }
+  }
+
+  isAIChatInputElement(element) {
+    // Check for specific AI chat platform input patterns
+    const chatInputSelectors = [
+      // Claude.ai patterns
+      '[data-testid*="chat"]',
+      '.ProseMirror',
+      // ChatGPT patterns  
+      '[data-testid="composer-text-input"]',
+      '[placeholder*="Message"]',
+      // Gemini patterns
+      '[aria-label*="Enter a prompt"]',
+      // Perplexity patterns
+      '[placeholder*="Ask anything"]',
+      // Generic chat patterns
+      '[placeholder*="message" i]',
+      '[placeholder*="question" i]',
+      '[placeholder*="ask" i]',
+      '[placeholder*="prompt" i]',
+      '[placeholder*="chat" i]'
+    ];
+
+    // Check if element matches any chat input patterns
+    for (const selector of chatInputSelectors) {
+      try {
+        if (element.matches && element.matches(selector)) {
+          return this.isValidInputField(element);
+        }
+      } catch (e) {
+        // Ignore selector errors
+      }
+    }
+
+    // Check parent elements for chat input patterns
+    let parent = element.parentElement;
+    let depth = 0;
+    while (parent && depth < 3) { // Only check up to 3 levels up
+      for (const selector of chatInputSelectors) {
+        try {
+          if (parent.matches && parent.matches(selector)) {
+            return this.isValidInputField(parent);
+          }
+        } catch (e) {
+          // Ignore selector errors
+        }
+      }
+      parent = parent.parentElement;
+      depth++;
+    }
+
+    return false;
+  }
+
+  isInputFieldContentValid(selection, selectedText) {
+    // Check if the input field has meaningful content beyond just the selection
+    try {
+      const range = selection.getRangeAt(0);
+      const container = range.commonAncestorContainer;
+      let inputElement = container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
+      
+      // Walk up to find the actual input element
+      while (inputElement && inputElement !== document.body) {
+        if (inputElement.tagName === 'TEXTAREA' || inputElement.tagName === 'INPUT') {
+          const totalContent = inputElement.value || '';
+          
+          // If the field is completely empty, don't show popup
+          if (totalContent.trim().length === 0) {
+            return false;
+          }
+          
+          // If the field only contains the selected text and nothing else, 
+          // and the selected text is very short, it might be a deletion case
+          if (totalContent.trim() === selectedText.trim() && selectedText.length < 10) {
+            return false;
+          }
+          
+          return true;
+        }
+        
+        if (inputElement.contentEditable === 'true') {
+          const totalContent = inputElement.textContent || inputElement.innerText || '';
+          
+          // If the field is completely empty, don't show popup
+          if (totalContent.trim().length === 0) {
+            return false;
+          }
+          
+          // If the field only contains the selected text and nothing else,
+          // and the selected text is very short, it might be a deletion case
+          if (totalContent.trim() === selectedText.trim() && selectedText.length < 10) {
+            return false;
+          }
+          
+          return true;
+        }
+        
+        inputElement = inputElement.parentElement;
+      }
+      
+      // If we can't find a proper input element, allow the selection
+      return true;
+    } catch (error) {
+      console.log('Error validating input field content:', error);
+      return true; // Default to allowing the selection if we can't validate
+    }
+  }
+
   copyOptimizedText() {
     if (!this.optimizedPrompt) return;
     
@@ -690,11 +1002,15 @@ Respond with only the optimized text, nothing else.`;
       return;
     }
     
+    // Remove all existing popups from DOM to prevent duplicates
+    const existingPopups = document.querySelectorAll('.prompt-optimizer-popup');
+    existingPopups.forEach(popup => {
+      popup.remove();
+    });
+    
     if (this.optimizationPopup) {
       // Clean up event listeners
       this.removeRepositioningEventListeners();
-      
-      this.optimizationPopup.remove();
       this.optimizationPopup = null;
     }
     
@@ -719,6 +1035,25 @@ Respond with only the optimized text, nothing else.`;
     const viewportWidth = window.innerWidth;
     const scrollY = window.scrollY;
     const scrollX = window.scrollX;
+    
+    // Handle invalid or off-screen selection rectangles
+    if (!selectionRect || 
+        selectionRect.width === 0 && selectionRect.height === 0 ||
+        selectionRect.top < scrollY - 100 || 
+        selectionRect.top > scrollY + viewportHeight + 100 ||
+        selectionRect.left < scrollX - 100 || 
+        selectionRect.left > scrollX + viewportWidth + 100) {
+      
+      // Use center-screen positioning for problematic selections
+      selectionRect = {
+        top: scrollY + viewportHeight / 3,
+        left: scrollX + viewportWidth / 2 - 160,
+        bottom: scrollY + viewportHeight / 3 + 20,
+        right: scrollX + viewportWidth / 2 + 160,
+        width: 320,
+        height: 20
+      };
+    }
     
     // Calculate popup dimensions (we need to temporarily append it to measure)
     popup.style.position = 'absolute';
@@ -950,11 +1285,149 @@ Respond with only the optimized text, nothing else.`;
       // Ignore errors if selection clearing fails
     }
   }
+
+  async restoreOptimizationState() {
+    try {
+      // Check if there's a current optimization for this page
+      const result = await chrome.storage.local.get(['currentOptimization']);
+      
+      if (!result.currentOptimization) {
+        return;
+      }
+      
+      // Get the optimization data
+      const optimizationResult = await chrome.storage.local.get([result.currentOptimization]);
+      const optimizationData = optimizationResult[result.currentOptimization];
+      
+      if (!optimizationData) {
+        return;
+      }
+      
+      // Check if the optimization is for the current page and is recent (within 1 hour)
+      const isCurrentPage = optimizationData.url === window.location.href;
+      const isRecent = (Date.now() - optimizationData.timestamp) < 3600000; // 1 hour
+      
+      if (isCurrentPage && isRecent) {
+        // Restore the optimization state
+        this.optimizedPrompt = optimizationData.optimizedText;
+        this.selectedText = optimizationData.originalText;
+        this.currentSessionKey = optimizationData.sessionKey;
+        
+        console.log('Instant Prompt Optimizer: Restored optimization state for current page');
+      }
+    } catch (error) {
+      console.log('Instant Prompt Optimizer: Could not restore optimization state:', error);
+    }
+  }
+
+  async cleanupOldOptimizations() {
+    try {
+      // Get all stored optimization data
+      const allData = await chrome.storage.local.get(null);
+      const keysToRemove = [];
+      const oneHourAgo = Date.now() - 3600000; // 1 hour
+      
+      for (const [key, value] of Object.entries(allData)) {
+        // Check if this is an optimization key and if it's old
+        if (key.startsWith('optimization_') && value.timestamp && value.timestamp < oneHourAgo) {
+          keysToRemove.push(key);
+        }
+      }
+      
+      // Remove old optimization data
+      if (keysToRemove.length > 0) {
+        await chrome.storage.local.remove(keysToRemove);
+        console.log(`Instant Prompt Optimizer: Cleaned up ${keysToRemove.length} old optimization(s)`);
+      }
+    } catch (error) {
+      console.log('Instant Prompt Optimizer: Could not cleanup old optimizations:', error);
+    }
+  }
+
+  async checkForCachedOptimization() {
+    try {
+      // Check if we have a cached optimization and if it matches the currently selected text
+      if (this.optimizedPrompt && this.selectedText) {
+        // Compare the cached original text with the currently selected text
+        const currentSelection = window.getSelection().toString().trim();
+        
+        // Only show cached result if it exactly matches the current selection
+        if (currentSelection === this.selectedText) {
+          // We have a matching cached optimization, show it
+          const optimizedTextDiv = document.getElementById('optimizedText');
+          const optimizeBtn = document.getElementById('optimizeBtn');
+          
+          if (optimizedTextDiv && optimizeBtn) {
+            // Display the cached optimization
+            optimizedTextDiv.textContent = this.optimizedPrompt;
+            optimizedTextDiv.style.display = 'block';
+            
+            // Hide the optimize button and show action buttons
+            optimizeBtn.style.display = 'none';
+            document.getElementById('replaceBtn').style.display = 'inline-flex';
+            document.getElementById('copyBtn').style.display = 'inline-flex';
+            
+            // Reposition popup after content is added
+            setTimeout(() => {
+              this.repositionPopupAfterExpansion();
+            }, 50);
+            
+            console.log('Instant Prompt Optimizer: Restored cached optimization result for matching text');
+          }
+        } else {
+          // Current selection doesn't match cached text, clear the cache
+          console.log('Instant Prompt Optimizer: Current selection differs from cached text, clearing cache');
+          this.clearCachedOptimization();
+        }
+      }
+    } catch (error) {
+      console.log('Instant Prompt Optimizer: Error checking cached optimization:', error);
+    }
+  }
+
+  async clearStoredOptimization() {
+    try {
+      if (this.currentSessionKey) {
+        // Remove the specific optimization data
+        await chrome.storage.local.remove([this.currentSessionKey, 'currentOptimization']);
+        
+        // Clear the local state
+        this.optimizedPrompt = null;
+        this.currentSessionKey = null;
+        
+        console.log('Instant Prompt Optimizer: Cleared stored optimization');
+      }
+    } catch (error) {
+      console.log('Instant Prompt Optimizer: Error clearing stored optimization:', error);
+    }
+  }
+
+  clearCachedOptimization() {
+    // Clear only the local cached state, but keep stored data for potential restoration
+    this.optimizedPrompt = null;
+    this.selectedText = null;
+    this.currentSessionKey = null;
+    console.log('Instant Prompt Optimizer: Cleared local cached optimization');
+  }
 }
 
 // Initialize the prompt optimizer when the page loads
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => new PromptOptimizer());
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!window.promptOptimizerInstance) {
+      console.log('Instant Prompt Optimizer: Initializing on DOMContentLoaded');
+      window.promptOptimizerInstance = new PromptOptimizer();
+      window.promptOptimizerInjected = true;
+    } else {
+      console.log('Instant Prompt Optimizer: Instance already exists, skipping initialization');
+    }
+  });
 } else {
-  new PromptOptimizer();
+  if (!window.promptOptimizerInstance) {
+    console.log('Instant Prompt Optimizer: Initializing immediately');
+    window.promptOptimizerInstance = new PromptOptimizer();
+    window.promptOptimizerInjected = true;
+  } else {
+    console.log('Instant Prompt Optimizer: Instance already exists, skipping initialization');
+  }
 }

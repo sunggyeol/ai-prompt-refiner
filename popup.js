@@ -4,18 +4,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   const statusContent = document.getElementById('statusContent');
   const apiKeyInput = document.getElementById('apiKeyInput');
   const saveApiKeyBtn = document.getElementById('saveApiKey');
+  const customWebsiteInput = document.getElementById('customWebsiteInput');
+  const addCustomWebsiteBtn = document.getElementById('addCustomWebsite');
+  const customWebsitesList = document.getElementById('customWebsitesList');
   
-  // Load existing API key
+  // Load existing API key and custom websites
   try {
-    const result = await chrome.storage.sync.get(['geminiApiKey']);
+    const result = await chrome.storage.sync.get(['geminiApiKey', 'customWebsites']);
     if (result.geminiApiKey) {
       apiKeyInput.value = result.geminiApiKey;
-      updateStatus('ready', 'API key configured! You can now optimize prompts on supported websites.');
+      updateStatus('ready', 'API key configured! You can now optimize prompts for better AI understanding on supported websites.');
     } else {
       updateStatus('error', 'Please configure your Gemini API key to start optimizing prompts.');
     }
+    
+    // Load custom websites
+    const customWebsites = result.customWebsites || [];
+    displayCustomWebsites(customWebsites);
   } catch (error) {
-    console.error('Error loading API key:', error);
+    console.error('Error loading configuration:', error);
     updateStatus('error', 'Error loading configuration. Please try again.');
   }
   
@@ -53,7 +60,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (isValid) {
         // Save the API key
         await chrome.storage.sync.set({ geminiApiKey: apiKey });
-        updateStatus('ready', 'API key saved successfully! You can now optimize prompts on supported websites.');
+        updateStatus('ready', 'API key saved successfully! You can now optimize prompts for better AI understanding on supported websites.');
         
         // Visual feedback
         apiKeyInput.classList.add('valid');
@@ -126,6 +133,205 @@ document.addEventListener('DOMContentLoaded', async () => {
       apiKeyInput.classList.add('invalid');
     }
   });
+  
+  // Add custom website functionality
+  addCustomWebsiteBtn.addEventListener('click', async () => {
+    const website = customWebsiteInput.value.trim();
+    
+    if (!website) {
+      customWebsiteInput.focus();
+      customWebsiteInput.classList.add('invalid');
+      setTimeout(() => customWebsiteInput.classList.remove('invalid'), 2000);
+      return;
+    }
+    
+    // Basic URL validation and cleanup
+    let cleanUrl = website.toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .replace(/\/$/, '');
+    
+    if (!cleanUrl || cleanUrl.length < 3 || !cleanUrl.includes('.')) {
+      customWebsiteInput.classList.add('invalid');
+      customWebsiteInput.focus();
+      setTimeout(() => customWebsiteInput.classList.remove('invalid'), 2000);
+      return;
+    }
+    
+    // Add loading state
+    addCustomWebsiteBtn.disabled = true;
+    addCustomWebsiteBtn.innerHTML = `
+      <svg class="icon" viewBox="0 0 24 24" style="width: 14px; height: 14px; margin-right: 4px;">
+        <path d="M21 12a9 9 0 11-6.219-8.56"/>
+      </svg>
+      Adding...
+    `;
+    
+    try {
+      const result = await chrome.storage.sync.get(['customWebsites']);
+      const customWebsites = result.customWebsites || [];
+      
+      // Check if website already exists
+      if (customWebsites.some(site => site.url === cleanUrl)) {
+        customWebsiteInput.classList.add('invalid');
+        setTimeout(() => customWebsiteInput.classList.remove('invalid'), 2000);
+        return;
+      }
+      
+      // Add new website
+      customWebsites.push({
+        url: cleanUrl,
+        name: cleanUrl,
+        id: Date.now().toString()
+      });
+      
+      await chrome.storage.sync.set({ customWebsites });
+      
+      // Success feedback
+      customWebsiteInput.classList.add('valid');
+      customWebsiteInput.value = '';
+      
+      displayCustomWebsites(customWebsites);
+      
+      // Update manifest to include new website
+      updateContentScriptMatches(customWebsites);
+      
+      // Reset input state
+      setTimeout(() => {
+        customWebsiteInput.classList.remove('valid');
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error adding custom website:', error);
+      customWebsiteInput.classList.add('invalid');
+      setTimeout(() => customWebsiteInput.classList.remove('invalid'), 2000);
+    } finally {
+      // Reset button state
+      addCustomWebsiteBtn.disabled = false;
+      addCustomWebsiteBtn.innerHTML = `
+        <svg class="icon" viewBox="0 0 24 24" style="width: 14px; height: 14px; margin-right: 4px;">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Add
+      `;
+    }
+  });
+  
+  // Allow Enter key to add website
+  customWebsiteInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      addCustomWebsiteBtn.click();
+    }
+  });
+  
+  // Real-time input validation for custom website
+  customWebsiteInput.addEventListener('input', (e) => {
+    const value = e.target.value.trim();
+    customWebsiteInput.classList.remove('valid', 'invalid');
+    
+    if (value.length === 0) {
+      addCustomWebsiteBtn.disabled = false;
+      return; // No feedback for empty input
+    }
+    
+    // Clean and validate URL
+    let cleanUrl = value.toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .replace(/\/$/, '');
+    
+    // Basic format validation
+    if (cleanUrl.length >= 3 && cleanUrl.includes('.') && !cleanUrl.includes(' ')) {
+      customWebsiteInput.classList.add('valid');
+      addCustomWebsiteBtn.disabled = false;
+    } else {
+      customWebsiteInput.classList.add('invalid');
+      addCustomWebsiteBtn.disabled = true;
+    }
+  });
+  
+  function displayCustomWebsites(websites) {
+    customWebsitesList.innerHTML = '';
+    
+    if (websites.length === 0) {
+      // Show empty state
+      const emptyState = document.createElement('div');
+      emptyState.className = 'custom-website-empty-state';
+      emptyState.innerHTML = `
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M2 12h20"/>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+        <div>No custom websites added yet.<br>Add a website to extend optimizer functionality.</div>
+      `;
+      customWebsitesList.appendChild(emptyState);
+      return;
+    }
+    
+    websites.forEach((website, index) => {
+      const item = document.createElement('div');
+      item.className = 'custom-website-item';
+      item.style.animationDelay = `${index * 50}ms`;
+      item.innerHTML = `
+        <div class="custom-website-info">
+          <span class="custom-website-url">${website.url}</span>
+          <span class="custom-website-status">Active</span>
+        </div>
+        <button class="remove-website-btn" data-id="${website.id}" title="Remove ${website.url}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      `;
+      
+      // Add remove functionality with animation
+      const removeBtn = item.querySelector('.remove-website-btn');
+      removeBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        
+        // Add removing animation
+        item.style.transform = 'translateX(100%)';
+        item.style.opacity = '0';
+        
+        setTimeout(async () => {
+          try {
+            const result = await chrome.storage.sync.get(['customWebsites']);
+            const customWebsites = result.customWebsites || [];
+            const updatedWebsites = customWebsites.filter(site => site.id !== website.id);
+            
+            await chrome.storage.sync.set({ customWebsites: updatedWebsites });
+            displayCustomWebsites(updatedWebsites);
+            updateContentScriptMatches(updatedWebsites);
+          } catch (error) {
+            console.error('Error removing website:', error);
+            // Reset animation on error
+            item.style.transform = '';
+            item.style.opacity = '';
+            alert('Error removing website. Please try again.');
+          }
+        }, 200);
+      });
+      
+      customWebsitesList.appendChild(item);
+    });
+  }
+  
+  async function updateContentScriptMatches(customWebsites) {
+    // Send message to background script to update content script matches
+    // This would require a background script to dynamically inject content scripts
+    try {
+      await chrome.runtime.sendMessage({
+        action: 'updateCustomWebsites',
+        websites: customWebsites
+      });
+    } catch (error) {
+      // Background script might not be available or this feature might not be implemented
+      console.log('Background script not available for dynamic content script updates');
+    }
+  }
   
   function updateStatus(type, message) {
     statusIndicator.className = `status-indicator status-${type}`;

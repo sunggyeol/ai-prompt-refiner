@@ -283,8 +283,192 @@
     /* Hover states for sections */
     .api-key-section:hover,
     .status:hover,
-    .instructions:hover {
+    .custom-website-section:hover {
       background: #111111;
+    }
+    
+    .custom-website-section {
+      background: #0c0c0c;
+      border-bottom: 1px solid #27272a;
+      padding: 20px;
+      transition: background-color 0.2s ease;
+    }
+    
+    .custom-website-help {
+      font-size: 12px;
+      text-align: center;
+      color: #a1a1aa;
+      margin-top: 8px;
+      margin-bottom: 0;
+    }
+    
+    .custom-websites-list {
+      margin-top: 16px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    
+    .custom-websites-list:empty {
+      display: none;
+    }
+    
+    .custom-website-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+      animation: slideInUp 0.3s ease-out forwards;
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    
+    @keyframes slideInUp {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .custom-website-item:hover {
+      background: #1c1c1f;
+      border-color: #3f3f46;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+    
+    .custom-website-item:last-child {
+      margin-bottom: 0;
+    }
+    
+    .custom-website-info {
+      flex-grow: 1;
+      margin-right: 12px;
+    }
+    
+    .custom-website-url {
+      font-size: 13px;
+      color: #fafafa;
+      font-weight: 500;
+      word-break: break-all;
+      line-height: 1.4;
+      display: block;
+      margin-bottom: 2px;
+    }
+    
+    .custom-website-status {
+      font-size: 11px;
+      color: #10b981;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .remove-website-btn {
+      background: none;
+      border: none;
+      color: #a1a1aa;
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+    }
+    
+    .remove-website-btn:hover {
+      background: #ef4444;
+      color: #ffffff;
+      transform: scale(1.05);
+    }
+    
+    .custom-website-empty-state {
+      text-align: center;
+      padding: 24px 16px;
+      color: #71717a;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    
+    .custom-website-empty-state svg {
+      margin: 0 auto 12px auto;
+      display: block;
+      opacity: 0.5;
+    }
+    
+    /* Input styling improvements */
+    #customWebsiteInput {
+      flex: 1;
+      padding: 10px 12px;
+      border: 1px solid #27272a;
+      border-radius: 6px;
+      background: #18181b;
+      color: #fafafa;
+      font-size: 13px;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+    
+    #customWebsiteInput::placeholder {
+      color: #71717a;
+    }
+    
+    #customWebsiteInput:focus {
+      outline: none;
+      border-color: #3f3f46;
+      background: #1c1c1f;
+      box-shadow: 0 0 0 3px rgba(63, 63, 70, 0.1);
+    }
+    
+    #customWebsiteInput.valid {
+      border-color: #10b981;
+      background: #0f1419;
+    }
+    
+    #customWebsiteInput.invalid {
+      border-color: #ef4444;
+      background: #1a0e0e;
+    }
+    
+    #addCustomWebsite {
+      padding: 10px 16px;
+      background: #fafafa;
+      border: 1px solid #fafafa;
+      border-radius: 6px;
+      color: #18181b;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      white-space: nowrap;
+    }
+    
+    #addCustomWebsite:hover:not(:disabled) {
+      background: #e4e4e7;
+      border-color: #e4e4e7;
+      transform: translateY(-1px);
+    }
+    
+    #addCustomWebsite:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      background: #a1a1aa;
+      border-color: #a1a1aa;
+      transform: none;
     }
   </style>
 </head>
@@ -293,7 +477,7 @@
     <div class="header">
       <div class="logo">✨</div>
       <h1 class="title">Instant Prompt Optimizer</h1>
-      <p class="subtitle">Optimize your AI interactions instantly</p>
+      <p class="subtitle">Make your prompts clearer for AI to understand</p>
     </div>
     
     <div class="api-key-section">
@@ -336,21 +520,29 @@
       </div>
     </div>
     
-    <div class="instructions">
-      <h3>
-        <svg class="icon" viewBox="0 0 24 24" style="width: 14px; height: 14px; margin-right: 6px;">
+    <div class="custom-website-section">
+      <div class="section-title">
+        <svg class="icon" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="10"/>
-          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-          <point cx="12" cy="17" r="1"/>
+          <path d="M2 12h20"/>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
         </svg>
-        How to use:
-      </h3>
-      <ol>
-        <li>Visit any supported AI website</li>
-        <li>Highlight text you want to optimize</li>
-        <li>Click "Optimize Grammar & Clarity" in the popup</li>
-        <li>Use the optimized prompt in your conversation</li>
-      </ol>
+        Custom Website
+      </div>
+      <div class="input-group">
+        <input type="text" id="customWebsiteInput" placeholder="Enter website URL (e.g., example.com)" />
+        <button id="addCustomWebsite" class="save-btn">
+          <svg class="icon" viewBox="0 0 24 24" style="width: 14px; height: 14px; margin-right: 4px;">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Add
+        </button>
+      </div>
+      <div class="custom-website-help">
+        Add custom websites where you want to use the prompt optimizer
+      </div>
+      <div id="customWebsitesList" class="custom-websites-list"></div>
     </div>
     
     <div class="footer">

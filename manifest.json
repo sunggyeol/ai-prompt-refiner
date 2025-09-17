@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Instant Prompt Optimizer",
-  "version": "0.1.0",
-  "description": "Instantly optimize your highlighted text into better AI prompts using Google's Gemini AI",
+  "version": "0.1.1",
+  "description": "Instantly optimize your highlighted text to be better understood by AI using Google's Gemini AI",
   
   "icons": {
     "16": "icons/icon16.png",
@@ -12,12 +12,19 @@
   },
   
   "permissions": [
-    "storage"
+    "storage",
+    "activeTab",
+    "scripting"
   ],
   
   "host_permissions": [
-    "https://generativelanguage.googleapis.com/*"
+    "https://generativelanguage.googleapis.com/*",
+    "*://*/*"
   ],
+
+  "background": {
+    "service_worker": "background.js"
+  },
   
   "content_scripts": [
     {
