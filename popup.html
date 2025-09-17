@@ -12,6 +12,14 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
       background: #0c0c0c;
       color: #fafafa;
+      overflow-x: hidden;
+      /* Hide all scrollbars globally */
+      scrollbar-width: none; /* Firefox */
+      -ms-overflow-style: none; /* Internet Explorer 10+ */
+    }
+    
+    body::-webkit-scrollbar {
+      display: none; /* WebKit browsers (Chrome, Safari, Edge) */
     }
     
     .container {
@@ -61,19 +69,27 @@
     
     .input-group {
       display: flex;
-      gap: 8px;
+      align-items: center;
+      gap: 12px;
       margin-bottom: 8px;
+      width: 100%;
     }
     
     #apiKeyInput {
       flex: 1;
+      min-width: 0;
+      width: 0;
       padding: 8px 12px;
       border: 1px solid #27272a;
       border-radius: 6px;
       background: #18181b;
       color: #fafafa;
-      font-size: 13px;
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 1.4;
       transition: all 0.2s ease;
+      height: 36px;
+      box-sizing: border-box;
     }
     
     #apiKeyInput::placeholder {
@@ -87,19 +103,23 @@
     }
     
     .save-btn {
-      padding: 8px 16px;
+      padding: 0 16px;
       background: #fafafa;
       border: 1px solid #fafafa;
       border-radius: 6px;
       color: #18181b;
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 500;
+      line-height: 1.4;
       cursor: pointer;
       transition: all 0.2s ease;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-height: 36px;
+      height: 36px;
+      width: 70px;
+      flex-shrink: 0;
+      box-sizing: border-box;
     }
     
     .save-btn:hover {
@@ -274,6 +294,16 @@
       box-sizing: border-box;
     }
     
+    /* Hide all scrollbars universally */
+    * {
+      scrollbar-width: none; /* Firefox */
+      -ms-overflow-style: none; /* Internet Explorer 10+ */
+    }
+    
+    *::-webkit-scrollbar {
+      display: none; /* WebKit browsers (Chrome, Safari, Edge) */
+    }
+    
     .api-key-section,
     .status,
     .instructions {
@@ -290,8 +320,9 @@
     .custom-website-section {
       background: #0c0c0c;
       border-bottom: 1px solid #27272a;
-      padding: 20px;
+      padding: 12px 20px;
       transition: background-color 0.2s ease;
+      overflow: hidden;
     }
     
     .custom-website-help {
@@ -303,9 +334,17 @@
     }
     
     .custom-websites-list {
-      margin-top: 16px;
-      max-height: 200px;
+      margin-top: 12px;
+      max-height: 160px;
       overflow-y: auto;
+      transition: all 0.2s ease;
+      /* Hide scrollbars */
+      scrollbar-width: none; /* Firefox */
+      -ms-overflow-style: none; /* Internet Explorer 10+ */
+    }
+    
+    .custom-websites-list::-webkit-scrollbar {
+      display: none; /* WebKit browsers (Chrome, Safari, Edge) */
     }
     
     .custom-websites-list:empty {
@@ -316,17 +355,19 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12px 16px;
+      padding: 8px 12px;
       background: #18181b;
       border: 1px solid #27272a;
-      border-radius: 8px;
-      margin-bottom: 8px;
+      border-radius: 6px;
+      margin-bottom: 6px;
       transition: all 0.2s ease;
       position: relative;
       overflow: hidden;
       animation: slideInUp 0.3s ease-out forwards;
       opacity: 0;
       transform: translateY(10px);
+      width: 100%;
+      box-sizing: border-box;
     }
     
     @keyframes slideInUp {
@@ -345,6 +386,15 @@
     
     .custom-website-item:last-child {
       margin-bottom: 0;
+    }
+    
+    .custom-website-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      flex-shrink: 0;
+      margin-right: 12px;
     }
     
     .custom-website-info {
@@ -394,10 +444,10 @@
     
     .custom-website-empty-state {
       text-align: center;
-      padding: 24px 16px;
+      padding: 16px 12px;
       color: #71717a;
-      font-size: 13px;
-      line-height: 1.5;
+      font-size: 12px;
+      line-height: 1.4;
     }
     
     .custom-website-empty-state svg {
@@ -409,14 +459,20 @@
     /* Input styling improvements */
     #customWebsiteInput {
       flex: 1;
-      padding: 10px 12px;
+      min-width: 0;
+      width: 0;
+      padding: 8px 12px;
       border: 1px solid #27272a;
       border-radius: 6px;
       background: #18181b;
       color: #fafafa;
-      font-size: 13px;
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 1.4;
       transition: all 0.2s ease;
       font-family: inherit;
+      height: 36px;
+      box-sizing: border-box;
     }
     
     #customWebsiteInput::placeholder {
@@ -441,19 +497,23 @@
     }
     
     #addCustomWebsite {
-      padding: 10px 16px;
+      padding: 0 16px;
       background: #fafafa;
       border: 1px solid #fafafa;
       border-radius: 6px;
       color: #18181b;
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 500;
+      line-height: 1.4;
       cursor: pointer;
       transition: all 0.2s ease;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-height: 42px;
+      height: 36px;
+      width: 70px;
+      flex-shrink: 0;
+      box-sizing: border-box;
       white-space: nowrap;
     }
     
@@ -546,10 +606,6 @@
     </div>
     
     <div class="footer">
-      <svg class="icon" viewBox="0 0 24 24" style="width: 12px; height: 12px; margin-right: 4px;">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
-      </svg>
       Supported sites: Claude, ChatGPT, Gemini, Perplexity
     </div>
   </div>

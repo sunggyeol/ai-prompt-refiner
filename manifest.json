@@ -32,8 +32,18 @@
         "*://claude.ai/*",
         "*://perplexity.ai/*",
         "*://chatgpt.com/*",
+        "*://chat.openai.com/*",
         "*://gemini.google.com/*",
-        "*://grok.com/*"
+        "*://grok.com/*",
+        "*://google.com/*",
+        "*://*.google.com/*",
+        "*://bing.com/*",
+        "*://*.bing.com/*",
+        "*://duckduckgo.com/*",
+        "*://github.com/*",
+        "*://stackoverflow.com/*",
+        "*://reddit.com/*",
+        "*://*.reddit.com/*"
       ],
       "js": ["content.js"],
       "css": ["styles.css"]

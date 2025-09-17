@@ -65,17 +65,20 @@ class PromptOptimizer {
       const selectedText = selection.toString().trim();
       
       if (selectedText.length > 0 && selectedText.length < 500000) {
-        // Check if the selection is within an input field
-        if (!this.isSelectionInInputField(selection)) {
-          console.log('Instant Prompt Optimizer: Selection not in input field, ignoring');
+        // Make input field detection very generous - check multiple ways
+        const isInInputField = this.isSelectionInInputField(selection) || 
+                              this.isSelectionInAnyInputElement(selection) ||
+                              this.hasActiveInputElement();
+        
+        if (!isInInputField) {
+          console.log('Instant Prompt Optimizer: Selection not in any input field, ignoring');
           this.hidePopup();
           return;
         }
         
-        // Check if the input field itself is empty or only contains the selected text
-        // This prevents showing popup when user deletes text after replacement
-        if (!this.isInputFieldContentValid(selection, selectedText)) {
-          console.log('Instant Prompt Optimizer: Input field is empty or invalid, ignoring');
+        // Make content validation more permissive - only skip for very obvious empty cases
+        if (!this.isInputFieldContentValidGenerous(selection, selectedText)) {
+          console.log('Instant Prompt Optimizer: Input field appears to be empty, ignoring');
           this.hidePopup();
           this.clearCachedOptimization();
           return;
@@ -112,7 +115,12 @@ class PromptOptimizer {
           this.targetElement = null;
         }
         
-        console.log(`Instant Prompt Optimizer: Showing popup for ${selectedText.length} characters in input field`);
+        // Also try to find and store the input element from selection for cases where activeElement isn't set
+        if (!this.targetElement) {
+          this.targetElement = this.findInputElementFromSelection(selection);
+        }
+        
+        console.log(`Instant Prompt Optimizer: Showing popup for ${selectedText.length} characters in input field on ${window.location.hostname}`);
         this.showOptimizationOptions(event);
       } else {
         if (selectedText.length >= 500000) {
@@ -197,8 +205,8 @@ class PromptOptimizer {
     this.optimizationPopup.className = 'prompt-optimizer-popup';
     this.optimizationPopup.innerHTML = `
       <div class="prompt-optimizer-content">
-        <div class="prompt-optimizer-header">
-          <span class="prompt-optimizer-title":
+        <div class="prompt-optimizer-header" id="dragHandle">
+          <span class="prompt-optimizer-title">
             <svg class="header-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
               <polyline points="14,2 14,8 20,8"/>
@@ -263,6 +271,9 @@ class PromptOptimizer {
     document.getElementById('replaceBtn').addEventListener('click', this.replaceText.bind(this));
     document.getElementById('copyBtn').addEventListener('click', this.copyOptimizedText.bind(this));
     document.getElementById('closeOptimizer').addEventListener('click', this.handleCloseClick.bind(this));
+    
+    // Add drag functionality
+    this.setupDragFunctionality();
     
     // Prevent popup from closing when clicking inside it
     this.optimizationPopup.addEventListener('mousedown', (e) => e.stopPropagation());
@@ -404,8 +415,20 @@ Optimize for AI Understanding
     }
   }
 
+  getWebsiteContext() {
+    // Extract website domain for context
+    const websiteInfo = {
+      domain: window.location.hostname
+    };
+    
+    return websiteInfo;
+  }
+
   async callGeminiAPI(text) {
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemma-3-27b-it:generateContent?key=${this.apiKey}`;
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.apiKey}`;
+    
+    // Get website context for dynamic optimization
+    const websiteInfo = this.getWebsiteContext();
     
     // Determine optimization approach based on text length and complexity
     const isLargeText = text.length > 10000;
@@ -415,48 +438,31 @@ Optimize for AI Understanding
     
     if (isShortSentence) {
       // For short sentences, focus on grammar and clarity
-      prompt = `You are a grammar and clarity expert. Your task is to improve this text by focusing ONLY on:
+      prompt = `Improve this text for grammar and clarity. Source: ${websiteInfo.domain}
 
-1. Fixing grammar, spelling, and punctuation errors
-2. Improving sentence structure for better readability
-3. Using clearer, more precise language
-4. Maintaining the exact original meaning and intent
+Fix grammar, spelling, and make it clearer while keeping the same meaning.
 
-Do NOT:
-- Add new content or requirements
-- Change the core message or intent
-- Make it more complex or verbose
-- Add context that wasn't originally there
+Text: "${text}"
 
-Please improve this text: "${text}"
-
-Respond with only the improved text, nothing else.`;
+Return only the improved version:`;
     } else if (isLargeText) {
       // For large text, optimize for LLM consumption
-      prompt = `You are an AI prompt optimization expert. Transform this text into a clear, well-structured prompt that LLMs can easily understand and follow by:
+      prompt = `Optimize this text for AI understanding. Source: ${websiteInfo.domain}
 
-- Breaking down complex requests into clear, numbered steps
-- Using specific, unambiguous language
-- Organizing information in a logical hierarchy
-- Adding necessary context for clarity
-- Structuring as clear instructions or requests
+Make it clearer and better structured for AI to understand and follow.
 
-Text to optimize:
-"${text}"
+Text: "${text}"
 
-Return only the LLM-optimized version:`;
+Return only the optimized version:`;
     } else {
       // For medium-length text, balance both approaches
-      prompt = `You are a communication expert. Optimize this text to be clearer and more effective by:
+      prompt = `Improve this text for clarity and effectiveness. Source: ${websiteInfo.domain}
 
-1. Fixing any grammar, spelling, or clarity issues
-2. Making the request more specific and actionable
-3. Structuring information logically
-4. Maintaining the exact original intent
+Fix grammar, make it more specific and actionable while keeping the same intent.
 
-Text to optimize: "${text}"
+Text: "${text}"
 
-Respond with only the optimized text, nothing else.`;
+Return only the improved version:`;
     }
 
     // Adjust parameters based on text length - be generous with Gemini's 1M context window
@@ -530,7 +536,13 @@ Respond with only the optimized text, nothing else.`;
       const data = await response.json();
       
       if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-        throw new Error('Invalid response from Gemini API');
+        console.error('Gemini API response structure:', JSON.stringify(data, null, 2));
+        throw new Error('Invalid response from Gemini API - missing candidates or content');
+      }
+
+      if (!data.candidates[0].content.parts || !data.candidates[0].content.parts[0] || !data.candidates[0].content.parts[0].text) {
+        console.error('Gemini API response parts structure:', JSON.stringify(data.candidates[0], null, 2));
+        throw new Error('Invalid response from Gemini API - missing text in parts');
       }
 
       return data.candidates[0].content.parts[0].text.trim();
@@ -548,29 +560,52 @@ Respond with only the optimized text, nothing else.`;
   replaceText() {
     if (!this.optimizedPrompt) return;
     
-    // Find the nearest input field or textarea
-    const inputField = this.findNearestInputField();
+    // First try to use the stored target element (important for Google and similar sites)
+    let inputField = this.targetElement;
+    
+    // If stored element is no longer valid, try to find it again
+    if (!inputField || !this.isValidInputField(inputField)) {
+      console.log('Instant Prompt Optimizer: Stored target element invalid, searching for input field');
+      inputField = this.findNearestInputField();
+    }
+    
+    // If still no input field, try more aggressive detection
+    if (!inputField) {
+      console.log('Instant Prompt Optimizer: Standard search failed, trying aggressive detection');
+      inputField = this.findInputFieldAggressively();
+    }
     
     if (inputField) {
       console.log('Instant Prompt Optimizer: Found input field:', inputField.tagName, inputField);
       
-      // Handle different types of input elements
-      if (inputField.contentEditable === 'true') {
-        console.log('Instant Prompt Optimizer: Replacing in contenteditable element');
-        this.replaceInContentEditable(inputField);
-      } else if (inputField.tagName === 'TEXTAREA' || inputField.tagName === 'INPUT') {
-        console.log('Instant Prompt Optimizer: Replacing in textarea/input element');
-        this.replaceInTextInput(inputField);
-      } else {
-        console.log('Instant Prompt Optimizer: Unknown input type, copying to clipboard');
-        this.copyOptimizedText();
-        return;
-      }
+      // Reactivate the input field before replacement (important for Google)
+      this.reactivateInputField(inputField);
       
-      this.hidePopup();
-      
-      // Clear the stored optimization since text has been replaced
-      this.clearStoredOptimization();
+      // Small delay to ensure field is reactivated
+      setTimeout(() => {
+        try {
+          // Handle different types of input elements
+          if (inputField.contentEditable === 'true') {
+            console.log('Instant Prompt Optimizer: Replacing in contenteditable element');
+            this.replaceInContentEditable(inputField);
+          } else if (inputField.tagName === 'TEXTAREA' || inputField.tagName === 'INPUT') {
+            console.log('Instant Prompt Optimizer: Replacing in textarea/input element');
+            this.replaceInTextInput(inputField);
+          } else {
+            console.log('Instant Prompt Optimizer: Unknown input type, copying to clipboard');
+            this.copyOptimizedText();
+            return;
+          }
+          
+          this.hidePopup();
+          
+          // Clear the stored optimization since text has been replaced
+          this.clearStoredOptimization();
+        } catch (error) {
+          console.error('Instant Prompt Optimizer: Error during replacement:', error);
+          this.copyOptimizedText();
+        }
+      }, 100);
     } else {
       console.log('Instant Prompt Optimizer: No input field found, copying to clipboard');
       this.copyOptimizedText();
@@ -688,45 +723,14 @@ Respond with only the optimized text, nothing else.`;
       newCursorPos = selectionStart + this.optimizedPrompt.length;
     }
     
-    // Set the new value
-    element.value = newValue;
-    
-    // Method 2: For React and modern frameworks - use native setter
-    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-      element.constructor.prototype, 'value'
-    )?.set;
-    
-    if (nativeInputValueSetter) {
-      nativeInputValueSetter.call(element, newValue);
+    // Handle Google Search specifically
+    if (window.location.hostname.includes('google.com')) {
+      this.replaceInGoogleSearchInput(element, newValue, newCursorPos);
+      return;
     }
     
-    // Method 3: Focus and set cursor position after the replaced text
-    element.focus();
-    
-    // Set cursor position after the replacement
-    if (element.setSelectionRange && newCursorPos !== undefined) {
-      element.setSelectionRange(newCursorPos, newCursorPos);
-    }
-    
-    // Method 4: Trigger comprehensive events
-    const events = [
-      'input',
-      'change', 
-      'keyup',
-      'paste'
-    ];
-    
-    events.forEach(eventType => {
-      element.dispatchEvent(new Event(eventType, { bubbles: true }));
-    });
-    
-    // Method 5: Additional compatibility check
-    setTimeout(() => {
-      if (element.value !== newValue) {
-        element.value = newValue;
-        element.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-    }, 50);
+    // Standard replacement for other sites
+    this.performStandardTextReplacement(element, newValue, newCursorPos);
   }
 
   findNearestInputField() {
@@ -758,6 +762,17 @@ Respond with only the optimized text, nothing else.`;
       'perplexity.ai': [
         'textarea[placeholder*="Ask anything"]',
         'div[contenteditable="true"]'
+      ],
+      // Google Search
+      'google.com': [
+        'textarea[name="q"]',
+        'input[name="q"]',
+        'textarea[aria-label*="Search"]',
+        'input[aria-label*="Search"]',
+        'textarea[title*="Search"]',
+        'input[title*="Search"]',
+        '.gLFyf',
+        '#APjFqb'
       ]
     };
     
@@ -777,17 +792,64 @@ Respond with only the optimized text, nothing else.`;
       }
     }
     
-    // Fallback to generic selectors
+    // Comprehensive fallback selectors - very generous
     const genericSelectors = [
-      'textarea[placeholder*="message" i]',
-      'textarea[placeholder*="question" i]',
-      'textarea[placeholder*="ask" i]',
-      'textarea[placeholder*="prompt" i]',
-      'textarea[placeholder*="chat" i]',
-      'div[contenteditable="true"]',
-      'textarea[rows]',
-      'textarea',
-      'input[type="text"]'
+      // Common search and query inputs
+      'textarea[name="q"]', 'input[name="q"]',
+      'textarea[name*="search"]', 'input[name*="search"]',
+      'textarea[name*="query"]', 'input[name*="query"]',
+      
+      // Placeholder-based detection
+      'textarea[placeholder*="search" i]', 'input[placeholder*="search" i]',
+      'textarea[placeholder*="message" i]', 'input[placeholder*="message" i]',
+      'textarea[placeholder*="question" i]', 'input[placeholder*="question" i]',
+      'textarea[placeholder*="ask" i]', 'input[placeholder*="ask" i]',
+      'textarea[placeholder*="prompt" i]', 'input[placeholder*="prompt" i]',
+      'textarea[placeholder*="chat" i]', 'input[placeholder*="chat" i]',
+      'textarea[placeholder*="comment" i]', 'input[placeholder*="comment" i]',
+      'textarea[placeholder*="note" i]', 'input[placeholder*="note" i]',
+      'textarea[placeholder*="write" i]', 'input[placeholder*="write" i]',
+      'textarea[placeholder*="text" i]', 'input[placeholder*="text" i]',
+      'textarea[placeholder*="type" i]', 'input[placeholder*="type" i]',
+      'textarea[placeholder*="enter" i]', 'input[placeholder*="enter" i]',
+      
+      // Aria-label based detection
+      'textarea[aria-label*="search" i]', 'input[aria-label*="search" i]',
+      'textarea[aria-label*="message" i]', 'input[aria-label*="message" i]',
+      'textarea[aria-label*="text" i]', 'input[aria-label*="text" i]',
+      'textarea[aria-label*="input" i]', 'input[aria-label*="input" i]',
+      'textarea[aria-label*="write" i]', 'input[aria-label*="write" i]',
+      'textarea[aria-label*="comment" i]', 'input[aria-label*="comment" i]',
+      
+      // Role-based detection
+      '[role="textbox"]', '[role="searchbox"]', '[role="combobox"]',
+      
+      // Contenteditable elements
+      'div[contenteditable="true"]', '[contenteditable="true"]',
+      
+      // Class-based detection (common patterns)
+      '.search-input', '.search-box', '.search-field',
+      '.text-input', '.text-box', '.text-field', '.text-area',
+      '.message-input', '.message-box', '.message-field',
+      '.comment-input', '.comment-box', '.comment-field',
+      '.input-field', '.input-box', '.form-control',
+      '.textbox', '.textarea', '.searchbox',
+      
+      // ID-based detection (common patterns)
+      '#search', '#search-input', '#search-box', '#search-field',
+      '#message', '#message-input', '#message-box',
+      '#comment', '#comment-input', '#comment-box',
+      '#text', '#text-input', '#text-box', '#textarea',
+      '#input', '#inputbox', '#textbox',
+      
+      // Generic selectors (broad catch-all)
+      'textarea[rows]', 'textarea[cols]',
+      'textarea', 'input[type="text"]', 'input[type="search"]',
+      'input:not([type])', // inputs without explicit type
+      'input[type="email"]', 'input[type="url"]', // might contain text to optimize
+      
+      // Very broad selectors (last resort)
+      'input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="image"]):not([type="hidden"])'
     ];
     
     for (const selector of genericSelectors) {
@@ -803,18 +865,72 @@ Respond with only the optimized text, nothing else.`;
   }
 
   isValidInputField(element) {
-    // Check if element is visible and reasonable size
-    const rect = element.getBoundingClientRect();
-    const style = window.getComputedStyle(element);
+    // More generous validation - check if element is visible and usable
+    try {
+      const rect = element.getBoundingClientRect();
+      const style = window.getComputedStyle(element);
+      
+      // Basic visibility checks
+      if (style.display === 'none' || style.visibility === 'hidden') {
+        return false;
+      }
+      
+      // Check if element is disabled or readonly
+      if (element.disabled || element.readOnly) {
+        return false;
+      }
+      
+      // More generous size requirements
+      const isVisible = (
+        rect.width > 50 &&  // Reduced from 100
+        rect.height > 15 && // Reduced from 20
+        rect.width < window.innerWidth + 100 && // Not absurdly wide
+        rect.height < window.innerHeight + 100   // Not absurdly tall
+      );
+      
+      // Check if element is in viewport or nearby (for dynamically positioned elements)
+      const isInOrNearViewport = (
+        rect.top > -100 && rect.top < window.innerHeight + 100 &&
+        rect.left > -100 && rect.left < window.innerWidth + 100
+      );
+      
+      // For very small elements, be extra permissive if they have input-like attributes
+      if (!isVisible && this.hasInputLikeAttributes(element)) {
+        // Small elements might still be valid if they're input-focused
+        return rect.width > 10 && rect.height > 10 && isInOrNearViewport;
+      }
+      
+      return isVisible && isInOrNearViewport;
+    } catch (error) {
+      console.log('Error validating input field:', error);
+      return true; // Default to true if we can't validate
+    }
+  }
+
+  // Check if element has input-like attributes that suggest it's an input field
+  hasInputLikeAttributes(element) {
+    const inputLikeAttributes = [
+      'placeholder', 'aria-label', 'data-testid', 'name', 'id', 'class'
+    ];
     
-    return (
-      rect.width > 100 && 
-      rect.height > 20 && 
-      style.display !== 'none' && 
-      style.visibility !== 'hidden' &&
-      !element.disabled &&
-      !element.readOnly
-    );
+    const inputKeywords = [
+      'input', 'search', 'text', 'message', 'comment', 'note', 'write', 
+      'edit', 'field', 'box', 'area', 'prompt', 'query', 'ask', 'chat'
+    ];
+    
+    for (const attr of inputLikeAttributes) {
+      const value = element.getAttribute(attr);
+      if (value) {
+        const lowerValue = value.toLowerCase();
+        for (const keyword of inputKeywords) {
+          if (lowerValue.includes(keyword)) {
+            return true;
+          }
+        }
+      }
+    }
+    
+    return false;
   }
 
   isSelectionInInputField(selection) {
@@ -869,12 +985,19 @@ Respond with only the optimized text, nothing else.`;
       '[aria-label*="Enter a prompt"]',
       // Perplexity patterns
       '[placeholder*="Ask anything"]',
+      // Google Search patterns
+      '[name="q"]',
+      '[aria-label*="Search"]',
+      '[title*="Search"]',
+      '.gLFyf',
+      '#APjFqb',
       // Generic chat patterns
       '[placeholder*="message" i]',
       '[placeholder*="question" i]',
       '[placeholder*="ask" i]',
       '[placeholder*="prompt" i]',
-      '[placeholder*="chat" i]'
+      '[placeholder*="chat" i]',
+      '[placeholder*="search" i]'
     ];
 
     // Check if element matches any chat input patterns
@@ -959,6 +1082,398 @@ Respond with only the optimized text, nothing else.`;
     } catch (error) {
       console.log('Error validating input field content:', error);
       return true; // Default to allowing the selection if we can't validate
+    }
+  }
+
+  // New generous content validation - much more permissive
+  isInputFieldContentValidGenerous(selection, selectedText) {
+    // Only reject in very obvious empty cases
+    try {
+      // If selected text is reasonable length, allow it
+      if (selectedText.length >= 3) {
+        return true;
+      }
+      
+      // For very short selections, do basic validation
+      const range = selection.getRangeAt(0);
+      const container = range.commonAncestorContainer;
+      let inputElement = container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
+      
+      // Walk up to find the actual input element
+      while (inputElement && inputElement !== document.body) {
+        if (inputElement.tagName === 'TEXTAREA' || inputElement.tagName === 'INPUT') {
+          const totalContent = inputElement.value || '';
+          // Only reject if completely empty
+          return totalContent.trim().length > 0;
+        }
+        
+        if (inputElement.contentEditable === 'true') {
+          const totalContent = inputElement.textContent || inputElement.innerText || '';
+          // Only reject if completely empty
+          return totalContent.trim().length > 0;
+        }
+        
+        inputElement = inputElement.parentElement;
+      }
+      
+      // If we can't find input element, allow the selection
+      return true;
+    } catch (error) {
+      console.log('Error in generous content validation:', error);
+      return true; // Default to allowing the selection
+    }
+  }
+
+  // Check if selection is in any input element with generous detection
+  isSelectionInAnyInputElement(selection) {
+    try {
+      const range = selection.getRangeAt(0);
+      const container = range.commonAncestorContainer;
+      let element = container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
+      
+      // Walk up the DOM tree with generous matching
+      while (element && element !== document.body && element !== document.documentElement) {
+        // Check for any input-like element
+        if (this.isAnyKindOfInputElement(element)) {
+          return true;
+        }
+        element = element.parentElement;
+      }
+      
+      return false;
+    } catch (error) {
+      console.log('Error in generous selection validation:', error);
+      return false;
+    }
+  }
+
+  // Check if there's any active input element on the page
+  hasActiveInputElement() {
+    const activeElement = document.activeElement;
+    if (activeElement && this.isAnyKindOfInputElement(activeElement)) {
+      return true;
+    }
+    
+    // Also check for any focused input elements
+    const focusedInputs = document.querySelectorAll('input:focus, textarea:focus, [contenteditable="true"]:focus');
+    return focusedInputs.length > 0;
+  }
+
+  // Very generous check for any kind of input element
+  isAnyKindOfInputElement(element) {
+    if (!element || !element.tagName) return false;
+    
+    const tagName = element.tagName.toUpperCase();
+    
+    // Standard input elements
+    if (tagName === 'INPUT' || tagName === 'TEXTAREA') {
+      return this.isValidInputField(element);
+    }
+    
+    // Contenteditable elements
+    if (element.contentEditable === 'true') {
+      return this.isValidInputField(element);
+    }
+    
+    // Elements with input-like roles
+    const role = element.getAttribute('role');
+    if (role && ['textbox', 'searchbox', 'combobox'].includes(role.toLowerCase())) {
+      return this.isValidInputField(element);
+    }
+    
+    // Elements with input-like classes or IDs (common patterns)
+    const classAndId = (element.className + ' ' + (element.id || '')).toLowerCase();
+    const inputPatterns = [
+      'input', 'search', 'text', 'message', 'comment', 'note', 'write', 'edit',
+      'field', 'box', 'area', 'prompt', 'query', 'ask', 'chat', 'compose'
+    ];
+    
+    for (const pattern of inputPatterns) {
+      if (classAndId.includes(pattern)) {
+        return this.isValidInputField(element);
+      }
+    }
+    
+    // Check for common input attributes
+    const inputAttributes = ['placeholder', 'data-testid', 'aria-label', 'name', 'title'];
+    for (const attr of inputAttributes) {
+      const value = element.getAttribute(attr);
+      if (value) {
+        const lowerValue = value.toLowerCase();
+        for (const pattern of inputPatterns) {
+          if (lowerValue.includes(pattern)) {
+            return this.isValidInputField(element);
+          }
+        }
+      }
+    }
+    
+    return false;
+  }
+
+  // Find input element from selection range
+  findInputElementFromSelection(selection) {
+    try {
+      if (!selection || selection.rangeCount === 0) {
+        return null;
+      }
+      
+      const range = selection.getRangeAt(0);
+      const container = range.commonAncestorContainer;
+      let element = container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
+      
+      // Walk up the DOM tree to find an input element
+      while (element && element !== document.body) {
+        if (this.isAnyKindOfInputElement(element)) {
+          return element;
+        }
+        element = element.parentElement;
+      }
+      
+      return null;
+    } catch (error) {
+      console.log('Error finding input element from selection:', error);
+      return null;
+    }
+  }
+
+  // Reactivate input field (important for Google and similar sites)
+  reactivateInputField(inputField) {
+    try {
+      console.log('Instant Prompt Optimizer: Reactivating input field');
+      
+      // Force focus on the element
+      inputField.focus();
+      
+      // Trigger mouse and focus events to reactivate
+      const events = [
+        { type: 'mousedown', event: MouseEvent },
+        { type: 'mouseup', event: MouseEvent },
+        { type: 'click', event: MouseEvent },
+        { type: 'focus', event: FocusEvent },
+        { type: 'focusin', event: FocusEvent }
+      ];
+      
+      events.forEach(({ type, event }) => {
+        try {
+          const evt = new event(type, {
+            bubbles: true,
+            cancelable: true,
+            view: window
+          });
+          inputField.dispatchEvent(evt);
+        } catch (e) {
+          // Fallback to basic Event if specific event type fails
+          try {
+            const evt = new Event(type, { bubbles: true });
+            inputField.dispatchEvent(evt);
+          } catch (e2) {
+            // Ignore if we can't create the event
+          }
+        }
+      });
+      
+      // For Google specifically, trigger additional activation
+      if (window.location.hostname.includes('google.com')) {
+        this.reactivateGoogleSearchField(inputField);
+      }
+      
+    } catch (error) {
+      console.log('Error reactivating input field:', error);
+    }
+  }
+
+  // Google-specific field reactivation
+  reactivateGoogleSearchField(inputField) {
+    try {
+      // Google often uses pointer events
+      const pointerEvents = ['pointerdown', 'pointerup', 'touchstart', 'touchend'];
+      pointerEvents.forEach(eventType => {
+        try {
+          const event = new Event(eventType, { bubbles: true });
+          inputField.dispatchEvent(event);
+        } catch (e) {
+          // Ignore event creation errors
+        }
+      });
+      
+      // Clear any readonly state temporarily
+      const wasReadOnly = inputField.readOnly;
+      inputField.readOnly = false;
+      
+      // Restore readonly state after a delay if it was set
+      if (wasReadOnly) {
+        setTimeout(() => {
+          inputField.readOnly = wasReadOnly;
+        }, 1000);
+      }
+      
+      // Trigger Google-specific events that might be needed
+      const googleEvents = ['input', 'textInput', 'compositionstart', 'compositionend'];
+      googleEvents.forEach(eventType => {
+        try {
+          const event = new Event(eventType, { bubbles: true });
+          inputField.dispatchEvent(event);
+        } catch (e) {
+          // Ignore event creation errors
+        }
+      });
+      
+    } catch (error) {
+      console.log('Error in Google-specific reactivation:', error);
+    }
+  }
+
+  // Aggressive input field detection for when standard methods fail
+  findInputFieldAggressively() {
+    // First try recent elements that might have lost focus
+    const recentInputs = document.querySelectorAll('input:not([type="hidden"]):not([type="button"]):not([type="submit"]), textarea, [contenteditable="true"]');
+    
+    // Sort by how recently they might have been active (heuristic)
+    const candidates = Array.from(recentInputs).filter(el => {
+      const rect = el.getBoundingClientRect();
+      const style = window.getComputedStyle(el);
+      
+      return (
+        rect.width > 10 && 
+        rect.height > 10 && 
+        style.display !== 'none' && 
+        style.visibility !== 'hidden' &&
+        !el.disabled
+      );
+    });
+    
+    // For Google, prioritize search-related elements
+    if (window.location.hostname.includes('google.com')) {
+      const googleCandidates = candidates.filter(el => {
+        const name = el.getAttribute('name') || '';
+        const className = el.className || '';
+        const id = el.id || '';
+        const placeholder = el.getAttribute('placeholder') || '';
+        const ariaLabel = el.getAttribute('aria-label') || '';
+        
+        const searchPatterns = ['q', 'search', 'query', 'gLFyf', 'APjFqb'];
+        const allText = (name + className + id + placeholder + ariaLabel).toLowerCase();
+        
+        return searchPatterns.some(pattern => allText.includes(pattern.toLowerCase()));
+      });
+      
+      if (googleCandidates.length > 0) {
+        return googleCandidates[0];
+      }
+    }
+    
+    // Return the first viable candidate
+    return candidates.length > 0 ? candidates[0] : null;
+  }
+
+  // Google-specific text input replacement
+  replaceInGoogleSearchInput(element, newValue, newCursorPos) {
+    try {
+      console.log('Instant Prompt Optimizer: Using Google-specific replacement');
+      
+      // Method 1: Clear and set approach (works better with Google's JS framework)
+      element.focus();
+      
+      // Clear existing content first
+      element.value = '';
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+      
+      // Small delay to ensure clearing is processed by Google's JS
+      setTimeout(() => {
+        // Set new value
+        element.value = newValue;
+        
+        // Use native setter for framework compatibility
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+          element.constructor.prototype, 'value'
+        )?.set;
+        
+        if (nativeInputValueSetter) {
+          nativeInputValueSetter.call(element, newValue);
+        }
+        
+        // Set cursor position
+        if (element.setSelectionRange && newCursorPos !== undefined) {
+          element.setSelectionRange(newCursorPos, newCursorPos);
+        }
+        
+        // Trigger Google-specific events
+        const googleEvents = [
+          'input', 'change', 'keyup', 'paste', 'focus',
+          'textInput', 'compositionend', 'keydown'
+        ];
+        
+        googleEvents.forEach(eventType => {
+          try {
+            const event = new Event(eventType, { bubbles: true, cancelable: true });
+            element.dispatchEvent(event);
+          } catch (e) {
+            // Ignore event creation errors
+          }
+        });
+        
+        // Additional verification - ensure value is set
+        setTimeout(() => {
+          if (element.value !== newValue) {
+            element.value = newValue;
+            element.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }, 100);
+        
+      }, 50);
+      
+    } catch (error) {
+      console.error('Error in Google-specific replacement:', error);
+      // Fallback to standard replacement
+      this.performStandardTextReplacement(element, newValue, newCursorPos);
+    }
+  }
+
+  // Standard text replacement for non-Google sites
+  performStandardTextReplacement(element, newValue, newCursorPos) {
+    try {
+      // Set the new value
+      element.value = newValue;
+      
+      // For React and modern frameworks - use native setter
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+        element.constructor.prototype, 'value'
+      )?.set;
+      
+      if (nativeInputValueSetter) {
+        nativeInputValueSetter.call(element, newValue);
+      }
+      
+      // Focus and set cursor position after the replaced text
+      element.focus();
+      
+      // Set cursor position after the replacement
+      if (element.setSelectionRange && newCursorPos !== undefined) {
+        element.setSelectionRange(newCursorPos, newCursorPos);
+      }
+      
+      // Trigger comprehensive events
+      const events = [
+        'input',
+        'change', 
+        'keyup',
+        'paste'
+      ];
+      
+      events.forEach(eventType => {
+        element.dispatchEvent(new Event(eventType, { bubbles: true }));
+      });
+      
+      // Additional compatibility check
+      setTimeout(() => {
+        if (element.value !== newValue) {
+          element.value = newValue;
+          element.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }, 50);
+    } catch (error) {
+      console.error('Error in standard text replacement:', error);
     }
   }
 
@@ -1409,25 +1924,102 @@ Respond with only the optimized text, nothing else.`;
     this.currentSessionKey = null;
     console.log('Instant Prompt Optimizer: Cleared local cached optimization');
   }
+
+  setupDragFunctionality() {
+    const dragHandle = document.getElementById('dragHandle');
+    if (!dragHandle) return;
+
+    let isDragging = false;
+    let dragOffset = { x: 0, y: 0 };
+
+    const handleMouseDown = (e) => {
+      // Only start drag if clicking on the header area, not the close button
+      if (e.target.closest('.prompt-optimizer-close')) {
+        return;
+      }
+
+      isDragging = true;
+      const rect = this.optimizationPopup.getBoundingClientRect();
+      dragOffset.x = e.clientX - rect.left;
+      dragOffset.y = e.clientY - rect.top;
+
+      // Add visual feedback
+      dragHandle.style.cursor = 'grabbing';
+      this.optimizationPopup.style.opacity = '0.9';
+      this.optimizationPopup.style.transform = 'scale(1.02)';
+      this.optimizationPopup.style.transition = 'none';
+
+      // Prevent text selection while dragging
+      e.preventDefault();
+      document.body.style.userSelect = 'none';
+
+      // Add global mouse event listeners
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    };
+
+    const handleMouseMove = (e) => {
+      if (!isDragging) return;
+
+      const newX = e.clientX - dragOffset.x;
+      const newY = e.clientY - dragOffset.y;
+
+      // Constrain to viewport bounds
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const popupRect = this.optimizationPopup.getBoundingClientRect();
+
+      const constrainedX = Math.max(0, Math.min(newX, viewportWidth - popupRect.width));
+      const constrainedY = Math.max(0, Math.min(newY, viewportHeight - popupRect.height));
+
+      this.optimizationPopup.style.left = `${constrainedX + window.scrollX}px`;
+      this.optimizationPopup.style.top = `${constrainedY + window.scrollY}px`;
+    };
+
+    const handleMouseUp = () => {
+      if (!isDragging) return;
+
+      isDragging = false;
+
+      // Remove visual feedback
+      dragHandle.style.cursor = 'grab';
+      this.optimizationPopup.style.opacity = '';
+      this.optimizationPopup.style.transform = '';
+      this.optimizationPopup.style.transition = '';
+
+      // Restore text selection
+      document.body.style.userSelect = '';
+
+      // Remove global mouse event listeners
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    // Set initial cursor style
+    dragHandle.style.cursor = 'grab';
+
+    // Add mouse down listener to start dragging
+    dragHandle.addEventListener('mousedown', handleMouseDown);
+  }
 }
 
 // Initialize the prompt optimizer when the page loads
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     if (!window.promptOptimizerInstance) {
-      console.log('Instant Prompt Optimizer: Initializing on DOMContentLoaded');
+      console.log(`Instant Prompt Optimizer: Initializing on DOMContentLoaded for ${window.location.hostname}`);
       window.promptOptimizerInstance = new PromptOptimizer();
       window.promptOptimizerInjected = true;
     } else {
-      console.log('Instant Prompt Optimizer: Instance already exists, skipping initialization');
+      console.log(`Instant Prompt Optimizer: Instance already exists on ${window.location.hostname}, skipping initialization`);
     }
   });
 } else {
   if (!window.promptOptimizerInstance) {
-    console.log('Instant Prompt Optimizer: Initializing immediately');
+    console.log(`Instant Prompt Optimizer: Initializing immediately for ${window.location.hostname}`);
     window.promptOptimizerInstance = new PromptOptimizer();
     window.promptOptimizerInjected = true;
   } else {
-    console.log('Instant Prompt Optimizer: Instance already exists, skipping initialization');
+    console.log(`Instant Prompt Optimizer: Instance already exists on ${window.location.hostname}, skipping initialization`);
   }
 }

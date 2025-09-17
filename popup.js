@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const result = await chrome.storage.sync.get(['geminiApiKey', 'customWebsites']);
     if (result.geminiApiKey) {
       apiKeyInput.value = result.geminiApiKey;
-      updateStatus('ready', 'API key configured! You can now optimize prompts for better AI understanding on supported websites.');
+      hideStatus();
     } else {
       updateStatus('error', 'Please configure your Gemini API key to start optimizing prompts.');
     }
@@ -43,13 +43,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     try {
       saveApiKeyBtn.disabled = true;
-      saveApiKeyBtn.classList.add('loading');
-      saveApiKeyBtn.innerHTML = `
-        <svg class="icon" viewBox="0 0 24 24" style="width: 14px; height: 14px; margin-right: 4px;">
-          <path d="M21 12a9 9 0 11-6.219-8.56"/>
-        </svg>
-        Saving...
-      `;
       
       // Add visual feedback for input validation
       apiKeyInput.classList.remove('valid', 'invalid');
@@ -60,30 +53,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (isValid) {
         // Save the API key
         await chrome.storage.sync.set({ geminiApiKey: apiKey });
-        updateStatus('ready', 'API key saved successfully! You can now optimize prompts for better AI understanding on supported websites.');
+        updateStatus('ready', 'API key saved successfully!');
         
         // Visual feedback
         apiKeyInput.classList.add('valid');
-        saveApiKeyBtn.classList.remove('loading');
-        saveApiKeyBtn.classList.add('success');
-        saveApiKeyBtn.innerHTML = `
-          <svg class="icon" viewBox="0 0 24 24" style="width: 14px; height: 14px; margin-right: 4px;">
-            <polyline points="20,6 9,17 4,12"/>
-          </svg>
-          Saved!
-        `;
-        
-        setTimeout(() => {
-          saveApiKeyBtn.classList.remove('success');
-          saveApiKeyBtn.innerHTML = `
-            <svg class="icon" viewBox="0 0 24 24" style="width: 14px; height: 14px; margin-right: 4px;">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-              <polyline points="17,21 17,13 7,13 7,21"/>
-              <polyline points="7,3 7,8 15,8"/>
-            </svg>
-            Save
-          `;
-        }, 2000);
+        // Hide status after successful save
+        hideStatus();
       } else {
         apiKeyInput.classList.add('invalid');
         updateStatus('error', 'Invalid API key. Please check your Gemini API key and try again.');
@@ -96,17 +71,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       alert('Error saving API key. Please try again.');
     } finally {
       saveApiKeyBtn.disabled = false;
-      saveApiKeyBtn.classList.remove('loading');
-      if (saveApiKeyBtn.innerHTML.includes('Saving...')) {
-        saveApiKeyBtn.innerHTML = `
-          <svg class="icon" viewBox="0 0 24 24" style="width: 14px; height: 14px; margin-right: 4px;">
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-            <polyline points="17,21 17,13 7,13 7,21"/>
-            <polyline points="7,3 7,8 15,8"/>
-          </svg>
-          Save
-        `;
-      }
     }
   });
   
@@ -255,18 +219,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     customWebsitesList.innerHTML = '';
     
     if (websites.length === 0) {
-      // Show empty state
-      const emptyState = document.createElement('div');
-      emptyState.className = 'custom-website-empty-state';
-      emptyState.innerHTML = `
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M2 12h20"/>
-          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-        </svg>
-        <div>No custom websites added yet.<br>Add a website to extend optimizer functionality.</div>
-      `;
-      customWebsitesList.appendChild(emptyState);
+      // No empty state message - just keep the list empty
       return;
     }
     
@@ -275,9 +228,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       item.className = 'custom-website-item';
       item.style.animationDelay = `${index * 50}ms`;
       item.innerHTML = `
+        <div class="custom-website-indicator"></div>
         <div class="custom-website-info">
           <span class="custom-website-url">${website.url}</span>
-          <span class="custom-website-status">Active</span>
         </div>
         <button class="remove-website-btn" data-id="${website.id}" title="Remove ${website.url}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -334,8 +287,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   
   function updateStatus(type, message) {
+    const statusSection = document.querySelector('.status');
+    statusSection.style.display = 'block';
     statusIndicator.className = `status-indicator status-${type}`;
     statusContent.textContent = message;
+  }
+  
+  function hideStatus() {
+    const statusSection = document.querySelector('.status');
+    statusSection.style.display = 'none';
   }
   
   async function testApiKey(apiKey) {
